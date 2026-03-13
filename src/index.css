@@ -1,0 +1,320 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    /* Premium “agenda” theme (claro) */
+    --background: 210 40% 98%;
+    --foreground: 222 47% 11%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+
+    /* Brand */
+    --primary: 222 66% 35%;
+    --primary-foreground: 210 40% 98%;
+    --brand: 222 66% 35%;
+    --brand-2: 262 68% 52%;
+
+    --secondary: 210 34% 94%;
+    --secondary-foreground: 222 47% 11%;
+
+    --muted: 210 34% 94%;
+    --muted-foreground: 215 16% 45%;
+
+    --accent: 220 80% 96%;
+    --accent-foreground: 222 47% 11%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 214 30% 88%;
+    --input: 214 30% 88%;
+    --ring: 222 66% 35%;
+
+    --radius: 0.75rem;
+
+    /* Calendar statuses (semantic) */
+    --status-free: 210 25% 72%; /* cinza */
+    --status-negotiation: 44 95% 52%; /* amarelo */
+    --status-confirmed: 145 63% 42%; /* verde */
+    --status-blocked: 0 82% 58%; /* vermelho */
+    --status-hold: 210 90% 56%; /* azul */
+
+    /* Effects */
+    --shadow-elev: 0 14px 40px -18px hsl(var(--brand) / 0.35);
+    --shadow-soft: 0 10px 30px -18px hsl(222 47% 11% / 0.18);
+    --gradient-hero: radial-gradient(1200px circle at var(--mx, 20%) var(--my, 20%),
+        hsl(var(--brand-2) / 0.22),
+        transparent 52%),
+      radial-gradient(900px circle at calc(var(--mx, 20%) + 18%) calc(var(--my, 20%) + 10%),
+        hsl(var(--brand) / 0.18),
+        transparent 56%);
+
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    --background: 222 47% 7%;
+    --foreground: 210 40% 98%;
+
+    --card: 222 47% 9%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222 47% 9%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 210 40% 98%;
+    --primary-foreground: 222 47% 11%;
+    --brand: 210 40% 98%;
+    --brand-2: 262 85% 72%;
+
+    --secondary: 222 32% 16%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 222 32% 16%;
+    --muted-foreground: 215 20% 65%;
+
+    --accent: 222 32% 16%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 222 26% 18%;
+    --input: 222 26% 18%;
+    --ring: 213 27% 84%;
+
+    --status-free: 210 20% 62%;
+    --status-negotiation: 44 90% 55%;
+    --status-confirmed: 145 55% 48%;
+    --status-blocked: 0 76% 62%;
+    --status-hold: 210 85% 62%;
+
+    --shadow-elev: 0 18px 50px -22px hsl(var(--brand-2) / 0.35);
+    --shadow-soft: 0 12px 40px -24px hsl(0 0% 0% / 0.5);
+
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+@layer utilities {
+  .bg-hero {
+    background-image: var(--gradient-hero);
+  }
+
+  .shadow-elev {
+    box-shadow: var(--shadow-elev);
+  }
+
+  .shadow-soft {
+    box-shadow: var(--shadow-soft);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .fade-up {
+      animation: fade-up 560ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+    }
+  }
+
+  @keyframes fade-up {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}
+
+/* ── FullCalendar Premium Overrides ── */
+.fc {
+  --fc-border-color: hsl(var(--border));
+  --fc-button-bg-color: hsl(var(--secondary));
+  --fc-button-border-color: hsl(var(--border));
+  --fc-button-text-color: hsl(var(--foreground));
+  --fc-button-hover-bg-color: hsl(var(--accent));
+  --fc-button-hover-border-color: hsl(var(--border));
+  --fc-button-active-bg-color: hsl(var(--primary));
+  --fc-button-active-border-color: hsl(var(--primary));
+  --fc-button-active-text-color: hsl(var(--primary-foreground));
+  --fc-today-bg-color: hsl(var(--brand) / 0.06);
+  --fc-page-bg-color: transparent;
+  --fc-neutral-bg-color: hsl(var(--muted) / 0.4);
+  --fc-list-event-hover-bg-color: hsl(var(--accent));
+  --fc-event-border-color: transparent;
+  font-family: inherit;
+}
+
+.fc .fc-toolbar-title {
+  font-size: 1.1rem !important;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  text-transform: capitalize;
+}
+
+.fc .fc-button {
+  font-size: 0.8rem !important;
+  font-weight: 500;
+  padding: 0.35rem 0.75rem !important;
+  border-radius: calc(var(--radius) - 2px) !important;
+  transition: all 0.15s ease;
+  box-shadow: none !important;
+  text-transform: capitalize;
+}
+
+.fc .fc-button:focus {
+  box-shadow: 0 0 0 2px hsl(var(--ring) / 0.3) !important;
+}
+
+.fc .fc-button-group > .fc-button {
+  border-radius: 0 !important;
+}
+.fc .fc-button-group > .fc-button:first-child {
+  border-radius: calc(var(--radius) - 2px) 0 0 calc(var(--radius) - 2px) !important;
+}
+.fc .fc-button-group > .fc-button:last-child {
+  border-radius: 0 calc(var(--radius) - 2px) calc(var(--radius) - 2px) 0 !important;
+}
+
+.fc .fc-col-header-cell {
+  padding: 0.6rem 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: hsl(var(--muted-foreground));
+  background: hsl(var(--muted) / 0.3);
+}
+
+.fc .fc-daygrid-day {
+  transition: background-color 0.15s ease;
+}
+
+.fc .fc-daygrid-day:hover {
+  background-color: hsl(var(--accent) / 0.5);
+}
+
+.fc .fc-daygrid-day-number {
+  font-size: 0.8rem;
+  font-weight: 500;
+  padding: 0.4rem 0.55rem;
+  color: hsl(var(--foreground) / 0.8);
+}
+
+.fc .fc-day-today .fc-daygrid-day-number {
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  border-radius: 50%;
+  width: 1.75rem;
+  height: 1.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+}
+
+.fc .fc-daygrid-event {
+  border-radius: calc(var(--radius) - 4px) !important;
+  padding: 1px 4px !important;
+  font-size: 0.75rem !important;
+  font-weight: 500;
+  border: none !important;
+  box-shadow: 0 1px 3px hsl(0 0% 0% / 0.12) !important;
+  transition: transform 0.1s ease, box-shadow 0.15s ease;
+}
+
+.fc .fc-daygrid-event:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px hsl(0 0% 0% / 0.18) !important;
+}
+
+.fc .fc-event-title {
+  font-weight: 500;
+}
+
+.fc .fc-timegrid-slot {
+  height: 3rem;
+  font-size: 0.75rem;
+}
+
+.fc .fc-list-event-title a {
+  color: hsl(var(--foreground)) !important;
+  font-weight: 500;
+}
+
+.fc .fc-list-day-cushion {
+  background: hsl(var(--muted) / 0.5) !important;
+  font-weight: 600;
+}
+
+.fc .fc-scrollgrid {
+  border-radius: calc(var(--radius) - 2px);
+  overflow: hidden;
+}
+
+.fc .fc-scrollgrid td:last-of-type {
+  border-right: none;
+}
+
+.fc .fc-daygrid-day-frame {
+  min-height: 5.5rem;
+}
+
+.fc .fc-day-other .fc-daygrid-day-number {
+  opacity: 0.35;
+}
+
+/* Drag mirror */
+.fc .fc-event-mirror {
+  opacity: 0.7;
+  box-shadow: 0 6px 20px hsl(0 0% 0% / 0.2) !important;
+}
+
+/* More events popover */
+.fc .fc-more-popover {
+  border-radius: var(--radius) !important;
+  box-shadow: var(--shadow-elev) !important;
+  border: 1px solid hsl(var(--border));
+}
+
+.fc .fc-more-popover .fc-popover-header {
+  background: hsl(var(--muted) / 0.5);
+  padding: 0.5rem 0.75rem;
+  font-weight: 600;
+  font-size: 0.8rem;
+}
