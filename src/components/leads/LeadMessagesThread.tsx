@@ -25,7 +25,10 @@ interface LeadMessagesThreadProps {
 
 export function LeadMessagesThread({ leadId }: LeadMessagesThreadProps) {
   const { activeOrgId } = useOrg();
-  const { data: messages = [], isLoading } = useLeadMessages(leadId, activeOrgId);
+  const { data: messages = [], isLoading } = useLeadMessages(
+    leadId,
+    activeOrgId,
+  );
   const qc = useQueryClient();
 
   // Real-time subscription for new messages
@@ -41,8 +44,10 @@ export function LeadMessagesThread({ leadId }: LeadMessagesThreadProps) {
           filter: `organization_id=eq.${activeOrgId}`,
         },
         () => {
-          qc.invalidateQueries({ queryKey: ["lead_messages", leadId, activeOrgId] });
-        }
+          qc.invalidateQueries({
+            queryKey: ["lead_messages", leadId, activeOrgId],
+          });
+        },
       )
       .subscribe();
 
@@ -69,8 +74,8 @@ export function LeadMessagesThread({ leadId }: LeadMessagesThreadProps) {
   }
 
   return (
-    <ScrollArea className="h-[350px]">
-      <div className="p-4 space-y-3">
+    <ScrollArea className="h-full min-h-0">
+      <div className="space-y-3 p-4">
         {messages.map((msg: any) => {
           const Icon = typeIcons[msg.message_type] || MessageCircle;
           const isInbound = msg.direction === "inbound";
@@ -93,9 +98,15 @@ export function LeadMessagesThread({ leadId }: LeadMessagesThreadProps) {
                     {msg.message_type}
                   </Badge>
                 </div>
-                <p className="whitespace-pre-wrap break-words">{msg.message_text}</p>
-                <div className={`text-[10px] opacity-60 mt-1 ${isInbound ? "text-left" : "text-right"}`}>
-                  {format(parseISO(msg.created_at), "dd/MM HH:mm", { locale: ptBR })}
+                <p className="whitespace-pre-wrap break-words">
+                  {msg.message_text}
+                </p>
+                <div
+                  className={`text-[10px] opacity-60 mt-1 ${isInbound ? "text-left" : "text-right"}`}
+                >
+                  {format(parseISO(msg.created_at), "dd/MM HH:mm", {
+                    locale: ptBR,
+                  })}
                 </div>
               </div>
             </div>
