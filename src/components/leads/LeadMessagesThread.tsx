@@ -8,6 +8,7 @@ import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { useOrg } from "@/providers/OrgProvider";
+import { queryKeys } from "@/lib/queryKeys";
 
 const typeIcons: Record<string, any> = {
   text: MessageCircle,
@@ -27,11 +28,10 @@ export function LeadMessagesThread({ leadId }: LeadMessagesThreadProps) {
   const { activeOrgId } = useOrg();
   const { data: messages = [], isLoading } = useLeadMessages(
     leadId,
-    activeOrgId,
+    activeOrgId
   );
   const qc = useQueryClient();
 
-  // Real-time subscription for new messages
   useEffect(() => {
     const channel = supabase
       .channel(`lead-messages-${leadId}`)
@@ -41,13 +41,21 @@ export function LeadMessagesThread({ leadId }: LeadMessagesThreadProps) {
           event: "*",
           schema: "public",
           table: "lead_messages",
-          filter: `organization_id=eq.${activeOrgId}`,
+          filter: `lead_id=eq.${leadId}`,
         },
-        () => {
+        (payload) => {
+          const payloadOrgId =
+            payload.new?.organization_id ?? payload.old?.organization_id;
+
+          if (activeOrgId && payloadOrgId && payloadOrgId !== activeOrgId) {
+            return;
+          }
+
           qc.invalidateQueries({
-            queryKey: ["lead_messages", leadId, activeOrgId],
+            queryKey: queryKeys.leadMessages(leadId, activeOrgId),
+            exact: true,
           });
-        },
+        }
       )
       .subscribe();
 
@@ -67,7 +75,7 @@ export function LeadMessagesThread({ leadId }: LeadMessagesThreadProps) {
   if (messages.length === 0) {
     return (
       <div className="p-6 text-center text-sm text-muted-foreground">
-        <MessageCircle className="h-8 w-8 mx-auto mb-2 opacity-30" />
+        <MessageCircle className="mx-auto mb-2 h-8 w-8 opacity-30" />
         Nenhuma mensagem do WhatsApp ainda
       </div>
     );
@@ -88,21 +96,25 @@ export function LeadMessagesThread({ leadId }: LeadMessagesThreadProps) {
               <div
                 className={`max-w-[80%] rounded-lg p-3 text-sm ${
                   isInbound
-                    ? "bg-muted border"
+                    ? "border bg-muted"
                     : "bg-primary text-primary-foreground"
                 }`}
               >
-                <div className="flex items-center gap-1 mb-1">
+                <div className="mb-1 flex items-center gap-1">
                   <Icon className="h-3 w-3" />
-                  <Badge variant="outline" className="text-[10px] px-1 py-0">
+                  <Badge variant="outline" className="px-1 py-0 text-[10px]">
                     {msg.message_type}
                   </Badge>
                 </div>
+
                 <p className="whitespace-pre-wrap break-words">
                   {msg.message_text}
                 </p>
+
                 <div
-                  className={`text-[10px] opacity-60 mt-1 ${isInbound ? "text-left" : "text-right"}`}
+                  className={`mt-1 text-[10px] opacity-60 ${
+                    isInbound ? "text-left" : "text-right"
+                  }`}
                 >
                   {format(parseISO(msg.created_at), "dd/MM HH:mm", {
                     locale: ptBR,

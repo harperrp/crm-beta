@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useOrg } from "@/providers/OrgProvider";
 import { db } from "@/lib/db";
+import { queryKeys } from "@/lib/queryKeys";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -52,7 +53,7 @@ export function WhatsAppInboxPage() {
   const [activeChannelTab, setActiveChannelTab] = useState("cloud");
 
   const { data: conversations = [] } = useQuery({
-    queryKey: ["whatsapp_conversations", activeOrgId],
+    queryKey: queryKeys.whatsappConversations(activeOrgId),
     enabled: !!activeOrgId,
     queryFn: async () => {
       const { data, error } = await db
@@ -122,12 +123,14 @@ export function WhatsAppInboxPage() {
         },
         () => {
           qc.invalidateQueries({
-            queryKey: ["whatsapp_conversations", activeOrgId],
+            queryKey: queryKeys.whatsappConversations(activeOrgId),
+            exact: true,
           });
 
           if (selectedLeadId) {
             qc.invalidateQueries({
-              queryKey: ["lead_messages", selectedLeadId],
+              queryKey: queryKeys.leadMessages(selectedLeadId, activeOrgId),
+              exact: true,
             });
           }
         },
@@ -155,9 +158,13 @@ export function WhatsAppInboxPage() {
       setText("");
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["lead_messages", selectedLeadId] });
       qc.invalidateQueries({
-        queryKey: ["whatsapp_conversations", activeOrgId],
+        queryKey: queryKeys.leadMessages(selectedLeadId, activeOrgId),
+        exact: true,
+      });
+      qc.invalidateQueries({
+        queryKey: queryKeys.whatsappConversations(activeOrgId),
+        exact: true,
       });
       toast.success("Mensagem enviada");
     },
