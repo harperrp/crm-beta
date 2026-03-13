@@ -7,30 +7,35 @@ import { Input } from "@/components/ui/input";
 import { AlertTriangle, CheckCircle2, Loader2, QrCode, RefreshCw, Server } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+codex/analyze-crm-architecture-and-messaging-flow-2icy4f
 
+
+main
 import {
   getWhatsAppVpsQrCode,
   getWhatsAppVpsStatus,
-  sendWhatsAppVpsMessage,
 } from "@/services/whatsappVps";
 
 interface WhatsAppQRPanelProps {
   leadId?: string | null;
   leadPhone?: string | null;
   leadName?: string | null;
-  onMessageSent?: (text: string) => Promise<void> | void;
 }
 
 function normalizePhone(phone?: string | null) {
   return (phone || "").replace(/\D/g, "");
 }
 
+codex/analyze-crm-architecture-and-messaging-flow-2icy4f
+export function WhatsAppQRPanel({ leadId, leadPhone, leadName }: WhatsAppQRPanelProps) {
+=======
 export function WhatsAppQRPanel({
   leadId,
   leadPhone,
   leadName,
   onMessageSent,
 }: WhatsAppQRPanelProps) {
+ main
   const [message, setMessage] = useState("");
 
   const normalizedPhone = useMemo(() => normalizePhone(leadPhone), [leadPhone]);
@@ -47,8 +52,13 @@ export function WhatsAppQRPanel({
     queryFn: getWhatsAppVpsQrCode,
     enabled: Boolean(
       statusQuery.data?.serverOnline &&
+ codex/analyze-crm-architecture-and-messaging-flow-2icy4f
+      !statusQuery.data?.whatsappConnected &&
+      (statusQuery.data?.state === "qr_ready" || statusQuery.data?.qrAvailable)
+
         !statusQuery.data?.whatsappConnected &&
         (statusQuery.data?.state === "qr_ready" || statusQuery.data?.qrAvailable)
+ main
     ),
     refetchInterval: 10000,
     retry: false,
@@ -56,13 +66,28 @@ export function WhatsAppQRPanel({
 
   const sendMutation = useMutation({
     mutationFn: async () => {
-      if (!normalizedPhone) {
-        throw new Error("Este lead não possui telefone válido para envio.");
+      if (!leadId) {
+        throw new Error("Selecione um lead válido para envio.");
       }
 
       if (!message.trim()) {
         throw new Error("Digite uma mensagem antes de enviar.");
       }
+
+ codex/analyze-crm-architecture-and-messaging-flow-2icy4f
+      const { error } = await supabase.functions.invoke("wa-send-message", {
+        body: {
+          lead_id: leadId,
+          text: message.trim(),
+          mode: "vps",
+          provider: "vps",
+        },
+      });
+
+      if (error) throw error;
+    },
+    onSuccess: async () => {
+      setMessage("");
 
       const text = message.trim();
 
@@ -96,6 +121,7 @@ export function WhatsAppQRPanel({
         setMessage("");
       }
 
+ main
       toast.success("Mensagem enviada via WhatsApp VPS");
     },
 
@@ -107,6 +133,7 @@ export function WhatsAppQRPanel({
   });
 
   const isConnected = statusQuery.data?.whatsappConnected;
+  const isWaitingQr = !isConnected && statusQuery.data?.serverOnline && (statusQuery.data?.state === "qr_ready" || statusQuery.data?.qrAvailable);
 
   const isWaitingQr =
     !isConnected &&
@@ -150,6 +177,11 @@ export function WhatsAppQRPanel({
 
           <Badge variant={isConnected ? "default" : "secondary"}>
             {isConnected ? (
+ codex/analyze-crm-architecture-and-messaging-flow-2icy4f
+              <><CheckCircle2 className="h-3 w-3 mr-1" /> WhatsApp conectado</>
+            ) : isWaitingQr ? (
+              <><QrCode className="h-3 w-3 mr-1" /> Aguardando leitura do QR</>
+
               <>
                 <CheckCircle2 className="h-3 w-3 mr-1" />
                 WhatsApp conectado
@@ -159,6 +191,7 @@ export function WhatsAppQRPanel({
                 <QrCode className="h-3 w-3 mr-1" />
                 Aguardando leitura do QR
               </>
+ main
             ) : (
               <>
                 <QrCode className="h-3 w-3 mr-1" />
@@ -168,6 +201,18 @@ export function WhatsAppQRPanel({
           </Badge>
         </div>
 
+ codex/analyze-crm-architecture-and-messaging-flow-2icy4f
+        {statusQuery.isError && (
+          <div className="text-xs rounded-md border border-destructive/40 bg-destructive/5 text-destructive p-2 flex items-start gap-2">
+            <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+            <span>
+              Não foi possível conectar ao servidor VPS. Verifique a URL do ambiente e se o serviço está ativo na porta 3000.
+            </span>
+          </div>
+        )}
+
+
+ main
         {isWaitingQr && (
           <Card className="p-3 bg-muted/30 border-dashed">
             <p className="text-xs text-muted-foreground mb-2">
@@ -213,7 +258,7 @@ export function WhatsAppQRPanel({
           <Button
             type="button"
             onClick={() => sendMutation.mutate()}
-            disabled={sendMutation.isPending || !message.trim() || !normalizedPhone}
+            disabled={sendMutation.isPending || !message.trim() || !leadId || !normalizedPhone}
           >
             {sendMutation.isPending && (
               <Loader2 className="h-4 w-4 mr-1 animate-spin" />
