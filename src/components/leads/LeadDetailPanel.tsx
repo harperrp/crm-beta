@@ -115,18 +115,17 @@ export function LeadDetailPanel({ lead }: LeadDetailPanelProps) {
             <TabsContent value="cloud" className="m-0 flex-1 min-h-0">
               <LeadMessagesThread leadId={lead.id} />
             </TabsContent>
-            <TabsContent value="vps" className="m-0 flex-1 overflow-auto">
-              <WhatsAppQRPanel
-                leadName={lead.contractor_name}
-                leadPhone={lead.contact_phone}
-                onMessageSent={async (content) => {
-                  await createInteraction.mutateAsync({
-                    lead_id: lead.id,
-                    event_type: "message_sent",
-                    payload: { content, channel: "whatsapp_vps" },
-                  });
-                }}
-              />
+            <TabsContent value="vps" className="m-0 flex-1 flex flex-col min-h-0 overflow-auto">
+              <div className="flex-1 min-h-0">
+                <LeadMessagesThread leadId={lead.id} />
+              </div>
+              <div className="border-t">
+                <WhatsAppQRPanel
+                  leadId={lead.id}
+                  leadName={lead.contractor_name}
+                  leadPhone={lead.contact_phone}
+                />
+              </div>
             </TabsContent>
           </Tabs>
         </TabsContent>

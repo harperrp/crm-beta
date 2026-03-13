@@ -23,19 +23,23 @@ function json(data, status = 200) {
 function normalize(phone) {
   return String(phone || "").replace(/[^\d]/g, "");
 }
+function resolveLeadIdFromBody(body) {
+  return body?.lead_id || body?.leadId || null;
+}
 async function resolveLeadPhone(leadId) {
   if (!leadId) return null;
-  const { data, error } = await supabase.from("leads").select("id, name, phone, whatsapp_phone").eq("id", leadId).maybeSingle();
+  const { data, error } = await supabase.from("leads").select("*").eq("id", leadId).maybeSingle();
   if (error) {
     console.error("Erro ao buscar lead:", error);
     throw new Error("Erro ao buscar lead");
   }
   if (!data) return null;
-  const phone = normalize(data.whatsapp_phone || data.phone || "");
+  const phone = normalize(data.whatsapp_phone || data.contact_phone || data.phone || "");
   if (!phone) return null;
   return {
     id: data.id,
-    name: data.name,
+    organization_id: data.organization_id,
+    name: data.contractor_name || data.name,
     phone
   };
 }
@@ -119,25 +123,65 @@ async function sendViaVps(params) {
 async function saveInteraction(params) {
   if (!params.leadId) return;
   const channel = params.mode === "vps" ? "whatsapp_vps" : "whatsapp_cloud";
-  const { error } = await supabase.from("lead_interactions").insert({
-    lead_id: params.leadId,
-    type: "message_sent",
-    channel,
+  const nextPayload = {
     content: params.text,
-    metadata: {
-      to: params.to,
-      provider: params.mode
-    }
+    to: params.to,
+    provider: params.mode,
+    channel
+  };
+  const { error: newSchemaError } = await supabase.from("lead_interactions").insert({
+    organization_id: params.organizationId,
+    lead_id: params.leadId,
+    event_type: "message_sent",
+    payload: nextPayload
   });
-  if (error) {
-    console.warn("Não foi possível salvar interaction:", error);
+  if (newSchemaError) {
+    const { error: legacyError } = await supabase.from("lead_interactions").insert({
+      lead_id: params.leadId,
+      type: "message_sent",
+      channel,
+      content: params.text,
+      metadata: {
+        to: params.to,
+        provider: params.mode
+      }
+    });
+    if (legacyError) {
+      console.warn("Não foi possível salvar interaction:", {
+        newSchemaError,
+        legacyError
+      });
+    }
   }
   const { error: leadError } = await supabase.from("leads").update({
     last_contact_at: new Date().toISOString(),
-    last_message: params.text
+    last_message: params.text,
+    last_message_at: new Date().toISOString(),
+    last_message_preview: params.text
   }).eq("id", params.leadId);
   if (leadError) {
     console.warn("Não foi possível atualizar lead:", leadError);
+  }
+}
+async function saveOutboundMessage(params) {
+  if (!params.leadId) return;
+  const { error } = await supabase.from("lead_messages").insert({
+    organization_id: params.organizationId,
+    lead_id: params.leadId,
+    direction: "outbound",
+    message_text: params.text,
+    message_type: params.media_url ? "image" : "text",
+    media_url: params.media_url,
+    wa_id: params.to,
+    raw_payload: {
+      provider: params.mode,
+      response: params.providerResponse
+    },
+    status: "sent",
+    sent_at: new Date().toISOString()
+  });
+  if (error) {
+    console.warn("Não foi possível salvar lead_messages outbound:", error);
   }
 }
 serve(async (req)=>{
@@ -153,6 +197,7 @@ serve(async (req)=>{
   }
   try {
     const body = await req.json();
+    const leadId = resolveLeadIdFromBody(body);
     const mode = body.mode || body.provider || "cloud";
     const text = String(body.text || body.message || "").trim();
     if (!text) {
@@ -162,8 +207,8 @@ serve(async (req)=>{
     }
     let to = normalize(body.to || "");
     let resolvedLead = null;
-    if (!to && body.leadId) {
-      resolvedLead = await resolveLeadPhone(body.leadId);
+    if (!to && leadId) {
+      resolvedLead = await resolveLeadPhone(leadId);
       if (!resolvedLead?.phone) {
         return json({
           error: "Lead sem telefone válido"
@@ -192,10 +237,20 @@ serve(async (req)=>{
       });
     }
     await saveInteraction({
-      leadId: body.leadId || resolvedLead?.id,
+      leadId: leadId || resolvedLead?.id,
+      organizationId: resolvedLead?.organization_id,
       text,
       mode,
       to
+    });
+    await saveOutboundMessage({
+      leadId: leadId || resolvedLead?.id,
+      organizationId: resolvedLead?.organization_id,
+      text,
+      mode,
+      to,
+      media_url,
+      providerResponse
     });
     return json({
       success: true,

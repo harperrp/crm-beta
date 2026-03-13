@@ -7,6 +7,7 @@ import { ptBR } from "date-fns/locale";
 import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
+import { useOrg } from "@/providers/OrgProvider";
 
 const typeIcons: Record<string, any> = {
   text: MessageCircle,
@@ -23,7 +24,8 @@ interface LeadMessagesThreadProps {
 }
 
 export function LeadMessagesThread({ leadId }: LeadMessagesThreadProps) {
-  const { data: messages = [], isLoading } = useLeadMessages(leadId);
+  const { activeOrgId } = useOrg();
+  const { data: messages = [], isLoading } = useLeadMessages(leadId, activeOrgId);
   const qc = useQueryClient();
 
   // Real-time subscription for new messages
@@ -36,10 +38,10 @@ export function LeadMessagesThread({ leadId }: LeadMessagesThreadProps) {
           event: "*",
           schema: "public",
           table: "lead_messages",
-          filter: `lead_id=eq.${leadId}`,
+          filter: `organization_id=eq.${activeOrgId}`,
         },
         () => {
-          qc.invalidateQueries({ queryKey: ["lead_messages", leadId] });
+          qc.invalidateQueries({ queryKey: ["lead_messages", leadId, activeOrgId] });
         }
       )
       .subscribe();
@@ -47,7 +49,7 @@ export function LeadMessagesThread({ leadId }: LeadMessagesThreadProps) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [leadId, qc]);
+  }, [leadId, activeOrgId, qc]);
 
   if (isLoading) {
     return (
