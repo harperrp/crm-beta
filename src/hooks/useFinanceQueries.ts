@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { db } from "@/lib/db";
 import { supabase } from "@/integrations/supabase/client";
+import { queryKeys } from "@/lib/queryKeys";
 
 function mapPaymentToLegacy(row: any) {
   return {
@@ -96,7 +97,7 @@ export function useDeleteFinanceTransaction(orgId: string | null) {
 
 export function useLeadMessages(leadId: string | null, orgId?: string | null) {
   return useQuery({
-    queryKey: ["lead_messages", leadId, orgId],
+    queryKey: queryKeys.leadMessages(leadId, orgId),
     enabled: !!leadId && !!orgId,
     refetchInterval: leadId ? 5000 : false,
     queryFn: async () => {
