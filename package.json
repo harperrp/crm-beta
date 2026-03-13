@@ -11,7 +11,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "supabase:types": "bash scripts/sync-supabase-types.sh"
+    "supabase:types": "bash scripts/sync-supabase-types.sh",
+    "check:merge-conflicts": "bash scripts/check-merge-conflicts.sh"
   },
   "dependencies": {
     "@fullcalendar/core": "^6.1.20",
