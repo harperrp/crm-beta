@@ -29,15 +29,11 @@ function normalizePhone(phone?: string | null) {
   return (phone || "").replace(/\D/g, "");
 }
 
- codex/analyze-crm-architecture-and-messaging-flow-kq8noc
-export function WhatsAppQRPanel({ leadId, leadPhone, leadName }: WhatsAppQRPanelProps) {
-=======
 export function WhatsAppQRPanel({
   leadId,
   leadPhone,
   leadName,
 }: WhatsAppQRPanelProps) {
- main
   const [message, setMessage] = useState("");
 
   const normalizedPhone = useMemo(() => normalizePhone(leadPhone), [leadPhone]);
@@ -54,13 +50,9 @@ export function WhatsAppQRPanel({
     queryFn: getWhatsAppVpsQrCode,
     enabled: Boolean(
       statusQuery.data?.serverOnline &&
- codex/analyze-crm-architecture-and-messaging-flow-kq8noc
-      !statusQuery.data?.whatsappConnected &&
-      (statusQuery.data?.state === "qr_ready" || statusQuery.data?.qrAvailable)
         !statusQuery.data?.whatsappConnected &&
         (statusQuery.data?.state === "qr_ready" ||
           statusQuery.data?.qrAvailable)
- main
     ),
     refetchInterval: 10000,
     retry: false,
@@ -70,13 +62,10 @@ export function WhatsAppQRPanel({
     mutationFn: async () => {
       if (!leadId) {
         throw new Error("Selecione um lead válido para envio.");
- codex/analyze-crm-architecture-and-messaging-flow-kq8noc
-
       }
 
       if (!normalizedPhone) {
         throw new Error("Lead sem telefone válido para envio.");
- main
       }
 
       if (!message.trim()) {
@@ -94,11 +83,7 @@ export function WhatsAppQRPanel({
 
       if (error) throw error;
     },
- codex/analyze-crm-architecture-and-messaging-flow-kq8noc
-    onSuccess: async () => {
-
     onSuccess: () => {
- main
       setMessage("");
       toast.success("Mensagem enviada via WhatsApp VPS");
     },
@@ -110,7 +95,6 @@ export function WhatsAppQRPanel({
   });
 
   const isConnected = statusQuery.data?.whatsappConnected;
-  const isWaitingQr = !isConnected && statusQuery.data?.serverOnline && (statusQuery.data?.state === "qr_ready" || statusQuery.data?.qrAvailable);
 
   const isWaitingQr =
     !isConnected &&
@@ -155,11 +139,6 @@ export function WhatsAppQRPanel({
 
           <Badge variant={isConnected ? "default" : "secondary"}>
             {isConnected ? (
- codex/analyze-crm-architecture-and-messaging-flow-kq8noc
-              <><CheckCircle2 className="h-3 w-3 mr-1" /> WhatsApp conectado</>
-            ) : isWaitingQr ? (
-              <><QrCode className="h-3 w-3 mr-1" /> Aguardando leitura do QR</>
-
               <>
                 <CheckCircle2 className="mr-1 h-3 w-3" />
                 WhatsApp conectado
@@ -169,7 +148,6 @@ export function WhatsAppQRPanel({
                 <QrCode className="mr-1 h-3 w-3" />
                 Aguardando leitura do QR
               </>
- main
             ) : (
               <>
                 <QrCode className="mr-1 h-3 w-3" />
@@ -190,16 +168,11 @@ export function WhatsAppQRPanel({
         )}
 
         {isWaitingQr && (
- codex/analyze-crm-architecture-and-messaging-flow-kq8noc
-          <Card className="p-3 bg-muted/30 border-dashed">
-            <p className="text-xs text-muted-foreground mb-2">Escaneie o QR Code para autenticar a sessão do WhatsApp.</p>
-
           <Card className="border-dashed bg-muted/30 p-3">
             <p className="mb-2 text-xs text-muted-foreground">
               Escaneie o QR Code para autenticar o WhatsApp.
             </p>
 
- main
             {qrQuery.isLoading ? (
               <div className="flex h-40 items-center justify-center text-xs text-muted-foreground">
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -243,16 +216,12 @@ export function WhatsAppQRPanel({
           <Button
             type="button"
             onClick={() => sendMutation.mutate()}
- codex/analyze-crm-architecture-and-messaging-flow-kq8noc
-            disabled={sendMutation.isPending || !message.trim() || !leadId || !normalizedPhone}
-
             disabled={
               sendMutation.isPending ||
               !message.trim() ||
               !leadId ||
               !normalizedPhone
             }
- main
           >
             {sendMutation.isPending && (
               <Loader2 className="mr-1 h-4 w-4 animate-spin" />
