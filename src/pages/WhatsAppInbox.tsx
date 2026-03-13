@@ -45,7 +45,8 @@ export function WhatsAppInboxPage() {
   const [text, setText] = useState("");
   const [query, setQuery] = useState("");
   const [newTemplateName, setNewTemplateName] = useState("");
-  const [newTemplateCategory, setNewTemplateCategory] = useState("apresentacao");
+  const [newTemplateCategory, setNewTemplateCategory] =
+    useState("apresentacao");
   const [newTemplateBody, setNewTemplateBody] = useState("");
   const [followupAt, setFollowupAt] = useState("");
   const [activeChannelTab, setActiveChannelTab] = useState("cloud");
@@ -57,7 +58,7 @@ export function WhatsAppInboxPage() {
       const { data, error } = await db
         .from("leads")
         .select(
-          "id, contractor_name, city, state, region, stage, last_message_at, last_message_preview, contact_phone, unread_count"
+          "id, contractor_name, city, state, region, stage, last_message_at, last_message_preview, contact_phone, unread_count",
         )
         .eq("organization_id", activeOrgId)
         .order("last_message_at", { ascending: false, nullsFirst: false });
@@ -69,7 +70,7 @@ export function WhatsAppInboxPage() {
 
   const selected = useMemo(
     () => conversations.find((c: any) => c.id === selectedLeadId),
-    [conversations, selectedLeadId]
+    [conversations, selectedLeadId],
   );
 
   const filtered = useMemo(() => {
@@ -85,7 +86,7 @@ export function WhatsAppInboxPage() {
         item.state,
       ]
         .filter(Boolean)
-        .some((field: string) => field.toLowerCase().includes(q))
+        .some((field: string) => field.toLowerCase().includes(q)),
     );
   }, [conversations, query]);
 
@@ -129,7 +130,7 @@ export function WhatsAppInboxPage() {
               queryKey: ["lead_messages", selectedLeadId],
             });
           }
-        }
+        },
       )
       .subscribe();
 
@@ -252,8 +253,8 @@ export function WhatsAppInboxPage() {
         </Card>
       </div>
 
-      <div className="grid h-[calc(100vh-320px)] grid-cols-1 gap-4 xl:grid-cols-[320px,1fr,320px]">
-        <Card className="overflow-hidden">
+      <div className="flex min-h-[calc(100vh-320px)] flex-col gap-4 xl:grid xl:grid-cols-[320px,minmax(0,1fr),320px]">
+        <Card className="flex min-h-[280px] flex-col overflow-hidden xl:min-h-0">
           <div className="space-y-2 border-b p-3">
             <div className="font-semibold">Conversas</div>
             <Input
@@ -263,7 +264,7 @@ export function WhatsAppInboxPage() {
             />
           </div>
 
-          <ScrollArea className="h-full">
+          <ScrollArea className="flex-1 min-h-0">
             <div className="space-y-2 p-2">
               {filtered.map((lead: any) => (
                 <button
@@ -310,7 +311,168 @@ export function WhatsAppInboxPage() {
           </ScrollArea>
         </Card>
 
-        <Card className="flex flex-col overflow-hidden">
+        <div className="xl:hidden">
+          <Tabs
+            defaultValue="conversa"
+            className="flex min-h-[520px] flex-col rounded-lg border bg-card"
+          >
+            <div className="border-b p-3">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="conversa">Conversa</TabsTrigger>
+                <TabsTrigger value="config">Configurações</TabsTrigger>
+              </TabsList>
+            </div>
+
+            <TabsContent
+              value="conversa"
+              className="m-0 flex flex-1 min-h-0 flex-col p-0"
+            >
+              <Card className="flex flex-1 min-h-0 flex-col rounded-none border-0 shadow-none">
+                <div className="border-b p-3 font-semibold">
+                  {selected?.contractor_name ?? "Selecione uma conversa"}
+                </div>
+
+                <Tabs
+                  value={activeChannelTab}
+                  onValueChange={setActiveChannelTab}
+                  className="flex flex-1 min-h-0 flex-col"
+                >
+                  <div className="border-b px-3 pt-3">
+                    <TabsList className="grid w-full grid-cols-2">
+                      <TabsTrigger value="cloud">WhatsApp Cloud</TabsTrigger>
+                      <TabsTrigger value="vps">WhatsApp VPS</TabsTrigger>
+                    </TabsList>
+                  </div>
+
+                  <TabsContent
+                    value="cloud"
+                    className="m-0 flex flex-1 min-h-0 flex-col"
+                  >
+                    <div className="flex-1 min-h-0">
+                      {selectedLeadId ? (
+                        <LeadMessagesThread leadId={selectedLeadId} />
+                      ) : null}
+                    </div>
+
+                    <div className="space-y-2 border-t p-3">
+                      <div className="flex items-center gap-2">
+                        <Label className="text-xs">Template:</Label>
+                        <div className="flex flex-wrap gap-1">
+                          {templates.slice(0, 4).map((template: any) => (
+                            <Button
+                              key={template.id}
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() =>
+                                setText(applyTemplate(template.body, selected))
+                              }
+                            >
+                              {template.name}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2">
+                        <Input
+                          value={text}
+                          onChange={(e) => setText(e.target.value)}
+                          placeholder="Digite sua resposta..."
+                          onKeyDown={(e) =>
+                            e.key === "Enter" && sendMessageMutation.mutate()
+                          }
+                        />
+                        <Button
+                          onClick={() => sendMessageMutation.mutate()}
+                          disabled={
+                            sendMessageMutation.isPending ||
+                            !text.trim() ||
+                            !hasValidPhone(selected?.contact_phone)
+                          }
+                        >
+                          Enviar
+                        </Button>
+                      </div>
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent
+                    value="vps"
+                    className="m-0 flex flex-1 min-h-0 flex-col overflow-auto"
+                  >
+                    <div className="flex-1 min-h-0">
+                      {selectedLeadId ? (
+                        <LeadMessagesThread leadId={selectedLeadId} />
+                      ) : null}
+                    </div>
+
+                    <div className="border-t">
+                      <WhatsAppQRPanel
+                        leadId={selectedLeadId}
+                        leadName={selected?.contractor_name}
+                        leadPhone={selected?.contact_phone}
+                      />
+                    </div>
+                  </TabsContent>
+                </Tabs>
+              </Card>
+            </TabsContent>
+
+            <TabsContent
+              value="config"
+              className="m-0 flex flex-1 min-h-0 flex-col p-0"
+            >
+              <Card className="flex flex-1 min-h-0 flex-col rounded-none border-0 shadow-none">
+                <ScrollArea className="flex-1 min-h-0 p-3">
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <h3 className="text-sm font-semibold">
+                        Agendar follow-up
+                      </h3>
+                      <Input
+                        type="datetime-local"
+                        value={followupAt}
+                        onChange={(e) => setFollowupAt(e.target.value)}
+                      />
+                      <Button className="w-full" onClick={scheduleFollowup}>
+                        Agendar
+                      </Button>
+                    </div>
+
+                    <div className="space-y-2 border-t pt-3">
+                      <h3 className="text-sm font-semibold">Novo template</h3>
+                      <Input
+                        placeholder="Nome"
+                        value={newTemplateName}
+                        onChange={(e) => setNewTemplateName(e.target.value)}
+                      />
+                      <Input
+                        placeholder="Categoria"
+                        value={newTemplateCategory}
+                        onChange={(e) => setNewTemplateCategory(e.target.value)}
+                      />
+                      <Input
+                        placeholder="Conteúdo com variáveis {{nome}}"
+                        value={newTemplateBody}
+                        onChange={(e) => setNewTemplateBody(e.target.value)}
+                      />
+                      <Button
+                        variant="outline"
+                        className="w-full"
+                        onClick={createTemplate}
+                      >
+                        Salvar template
+                      </Button>
+                    </div>
+                  </div>
+                </ScrollArea>
+              </Card>
+            </TabsContent>
+          </Tabs>
+        </div>
+
+        <Card className="hidden min-h-0 flex-col overflow-hidden xl:flex">
           <div className="border-b p-3 font-semibold">
             {selected?.contractor_name ?? "Selecione uma conversa"}
           </div>
@@ -318,7 +480,7 @@ export function WhatsAppInboxPage() {
           <Tabs
             value={activeChannelTab}
             onValueChange={setActiveChannelTab}
-            className="flex flex-1 flex-col min-h-0"
+            className="flex flex-1 min-h-0 flex-col"
           >
             <div className="border-b px-3 pt-3">
               <TabsList className="grid w-full grid-cols-2">
@@ -329,7 +491,7 @@ export function WhatsAppInboxPage() {
 
             <TabsContent
               value="cloud"
-              className="m-0 flex flex-1 flex-col min-h-0"
+              className="m-0 flex flex-1 min-h-0 flex-col"
             >
               <div className="flex-1 min-h-0">
                 {selectedLeadId ? (
@@ -382,7 +544,7 @@ export function WhatsAppInboxPage() {
 
             <TabsContent
               value="vps"
-              className="m-0 flex flex-1 flex-col min-h-0 overflow-auto"
+              className="m-0 flex flex-1 min-h-0 flex-col overflow-auto"
             >
               <div className="flex-1 min-h-0">
                 {selectedLeadId ? (
@@ -401,8 +563,8 @@ export function WhatsAppInboxPage() {
           </Tabs>
         </Card>
 
-        <Card className="overflow-hidden">
-          <ScrollArea className="h-full p-3">
+        <Card className="hidden min-h-0 flex-col overflow-hidden xl:flex">
+          <ScrollArea className="flex-1 min-h-0 p-3">
             <div className="space-y-4">
               <div className="space-y-2">
                 <h3 className="text-sm font-semibold">Agendar follow-up</h3>
