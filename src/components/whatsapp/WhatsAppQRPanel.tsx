@@ -6,23 +6,23 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { AlertTriangle, CheckCircle2, Loader2, QrCode, RefreshCw, Server } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 import {
   getWhatsAppVpsQrCode,
   getWhatsAppVpsStatus,
-  sendWhatsAppVpsMessage,
 } from "@/services/whatsappVps";
 
 interface WhatsAppQRPanelProps {
+  leadId?: string | null;
   leadPhone?: string | null;
   leadName?: string | null;
-  onMessageSent?: (text: string) => Promise<void> | void;
 }
 
 function normalizePhone(phone?: string | null) {
   return (phone || "").replace(/\D/g, "");
 }
 
-export function WhatsAppQRPanel({ leadPhone, leadName, onMessageSent }: WhatsAppQRPanelProps) {
+export function WhatsAppQRPanel({ leadId, leadPhone, leadName }: WhatsAppQRPanelProps) {
   const [message, setMessage] = useState("");
 
   const normalizedPhone = useMemo(() => normalizePhone(leadPhone), [leadPhone]);
@@ -37,31 +37,37 @@ export function WhatsAppQRPanel({ leadPhone, leadName, onMessageSent }: WhatsApp
   const qrQuery = useQuery({
     queryKey: ["whatsapp_vps_qr"],
     queryFn: getWhatsAppVpsQrCode,
-    enabled: Boolean(statusQuery.data?.serverOnline && !statusQuery.data?.whatsappConnected),
+    enabled: Boolean(
+      statusQuery.data?.serverOnline &&
+      !statusQuery.data?.whatsappConnected &&
+      (statusQuery.data?.state === "qr_ready" || statusQuery.data?.qrAvailable)
+    ),
     refetchInterval: 10000,
     retry: false,
   });
 
   const sendMutation = useMutation({
     mutationFn: async () => {
-      if (!normalizedPhone) {
-        throw new Error("Este lead não possui telefone válido para envio.");
+      if (!leadId) {
+        throw new Error("Selecione um lead válido para envio.");
       }
       if (!message.trim()) {
         throw new Error("Digite uma mensagem antes de enviar.");
       }
 
-      await sendWhatsAppVpsMessage({
-        phone: normalizedPhone,
-        text: message.trim(),
+      const { error } = await supabase.functions.invoke("wa-send-message", {
+        body: {
+          lead_id: leadId,
+          text: message.trim(),
+          mode: "vps",
+          provider: "vps",
+        },
       });
+
+      if (error) throw error;
     },
     onSuccess: async () => {
-      try {
-        await onMessageSent?.(message.trim());
-      } finally {
-        setMessage("");
-      }
+      setMessage("");
       toast.success("Mensagem enviada via WhatsApp VPS");
     },
     onError: (error: any) => {
@@ -72,6 +78,7 @@ export function WhatsAppQRPanel({ leadPhone, leadName, onMessageSent }: WhatsApp
   });
 
   const isConnected = statusQuery.data?.whatsappConnected;
+  const isWaitingQr = !isConnected && statusQuery.data?.serverOnline && (statusQuery.data?.state === "qr_ready" || statusQuery.data?.qrAvailable);
 
   return (
     <div className="space-y-3 p-3">
@@ -108,6 +115,8 @@ export function WhatsAppQRPanel({ leadPhone, leadName, onMessageSent }: WhatsApp
           <Badge variant={isConnected ? "default" : "secondary"}>
             {isConnected ? (
               <><CheckCircle2 className="h-3 w-3 mr-1" /> WhatsApp conectado</>
+            ) : isWaitingQr ? (
+              <><QrCode className="h-3 w-3 mr-1" /> Aguardando leitura do QR</>
             ) : (
               <><QrCode className="h-3 w-3 mr-1" /> WhatsApp desconectado</>
             )}
@@ -123,7 +132,7 @@ export function WhatsAppQRPanel({ leadPhone, leadName, onMessageSent }: WhatsApp
           </div>
         )}
 
-        {!isConnected && statusQuery.data?.serverOnline && (
+        {isWaitingQr && (
           <Card className="p-3 bg-muted/30 border-dashed">
             <p className="text-xs text-muted-foreground mb-2">Escaneie o QR Code para autenticar a sessão do WhatsApp.</p>
             {qrQuery.isLoading ? (
@@ -158,7 +167,7 @@ export function WhatsAppQRPanel({ leadPhone, leadName, onMessageSent }: WhatsApp
           <Button
             type="button"
             onClick={() => sendMutation.mutate()}
-            disabled={sendMutation.isPending || !message.trim() || !normalizedPhone}
+            disabled={sendMutation.isPending || !message.trim() || !leadId || !normalizedPhone}
           >
             {sendMutation.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
             Enviar VPS

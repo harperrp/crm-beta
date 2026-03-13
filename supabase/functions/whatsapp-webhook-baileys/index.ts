@@ -117,13 +117,37 @@ Deno.serve(async (req)=>{
         error: "Could not resolve contact"
       }, 400);
     }
-    let { data: lead, error: leadLookupError } = await supabase.from("leads").select("id").eq("organization_id", org.id).eq("contact_id", contact.id).neq("stage", "Fechado").order("updated_at", {
-      ascending: false
-    }).limit(1).maybeSingle();
-    console.log("LEAD LOOKUP", {
-      lead,
-      leadLookupError
-    });
+    let lead = null;
+    {
+      const { data, error } = await supabase.from("leads").select("id").eq("organization_id", org.id).eq("whatsapp_phone", phone).neq("stage", "Fechado").order("updated_at", {
+        ascending: false
+      }).limit(1).maybeSingle();
+      console.log("LEAD LOOKUP by whatsapp_phone", {
+        data,
+        error
+      });
+      if (data?.id) lead = data;
+    }
+    if (!lead?.id) {
+      const { data, error } = await supabase.from("leads").select("id").eq("organization_id", org.id).eq("contact_phone", phone).neq("stage", "Fechado").order("updated_at", {
+        ascending: false
+      }).limit(1).maybeSingle();
+      console.log("LEAD LOOKUP by contact_phone", {
+        data,
+        error
+      });
+      if (data?.id) lead = data;
+    }
+    if (!lead?.id) {
+      const { data, error } = await supabase.from("leads").select("id").eq("organization_id", org.id).eq("contact_id", contact.id).neq("stage", "Fechado").order("updated_at", {
+        ascending: false
+      }).limit(1).maybeSingle();
+      console.log("LEAD LOOKUP by contact_id", {
+        data,
+        error
+      });
+      if (data?.id) lead = data;
+    }
     if (!lead?.id) {
       const { data: createdLead, error: createdLeadError } = await supabase.from("leads").insert({
         organization_id: org.id,
