@@ -37,7 +37,11 @@ export function WhatsAppQRPanel({ leadPhone, leadName, onMessageSent }: WhatsApp
   const qrQuery = useQuery({
     queryKey: ["whatsapp_vps_qr"],
     queryFn: getWhatsAppVpsQrCode,
-    enabled: Boolean(statusQuery.data?.serverOnline && !statusQuery.data?.whatsappConnected),
+    enabled: Boolean(
+      statusQuery.data?.serverOnline &&
+      !statusQuery.data?.whatsappConnected &&
+      (statusQuery.data?.state === "qr_ready" || statusQuery.data?.qrAvailable)
+    ),
     refetchInterval: 10000,
     retry: false,
   });
@@ -72,6 +76,7 @@ export function WhatsAppQRPanel({ leadPhone, leadName, onMessageSent }: WhatsApp
   });
 
   const isConnected = statusQuery.data?.whatsappConnected;
+  const isWaitingQr = !isConnected && statusQuery.data?.serverOnline && (statusQuery.data?.state === "qr_ready" || statusQuery.data?.qrAvailable);
 
   return (
     <div className="space-y-3 p-3">
@@ -108,6 +113,8 @@ export function WhatsAppQRPanel({ leadPhone, leadName, onMessageSent }: WhatsApp
           <Badge variant={isConnected ? "default" : "secondary"}>
             {isConnected ? (
               <><CheckCircle2 className="h-3 w-3 mr-1" /> WhatsApp conectado</>
+            ) : isWaitingQr ? (
+              <><QrCode className="h-3 w-3 mr-1" /> Aguardando leitura do QR</>
             ) : (
               <><QrCode className="h-3 w-3 mr-1" /> WhatsApp desconectado</>
             )}
@@ -123,7 +130,7 @@ export function WhatsAppQRPanel({ leadPhone, leadName, onMessageSent }: WhatsApp
           </div>
         )}
 
-        {!isConnected && statusQuery.data?.serverOnline && (
+        {isWaitingQr && (
           <Card className="p-3 bg-muted/30 border-dashed">
             <p className="text-xs text-muted-foreground mb-2">Escaneie o QR Code para autenticar a sessão do WhatsApp.</p>
             {qrQuery.isLoading ? (
