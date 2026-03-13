@@ -94,17 +94,21 @@ export function useDeleteFinanceTransaction(orgId: string | null) {
   });
 }
 
-export function useLeadMessages(leadId: string | null) {
+export function useLeadMessages(leadId: string | null, orgId?: string | null) {
   return useQuery({
-    queryKey: ["lead_messages", leadId],
-    enabled: !!leadId,
+    queryKey: ["lead_messages", leadId, orgId],
+    enabled: !!leadId && !!orgId,
     refetchInterval: leadId ? 5000 : false,
     queryFn: async () => {
-      const { data, error } = await db
+      let query = db
         .from("lead_messages")
         .select("id, lead_id, direction, message_text, message_type, created_at")
         .eq("lead_id", leadId)
         .order("created_at", { ascending: true });
+      if (orgId) {
+        query = query.eq("organization_id", orgId);
+      }
+      const { data, error } = await query;
       if (error) throw error;
       return data as any[];
     },

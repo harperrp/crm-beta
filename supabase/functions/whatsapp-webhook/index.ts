@@ -281,18 +281,7 @@ Deno.serve(async (req)=>{
               continue;
             }
             let lead = null;
-            // 1) tenta por contact_id
-            {
-              const { data, error } = await supabase.from("leads").select("id").eq("organization_id", org.id).eq("contact_id", contact.id).neq("stage", "Fechado").order("updated_at", {
-                ascending: false
-              }).limit(1).maybeSingle();
-              console.log("Lead lookup by contact_id", {
-                data,
-                error
-              });
-              if (data?.id) lead = data;
-            }
-            // 2) fallback por whatsapp_phone
+            // 1) tenta por whatsapp_phone
             if (!lead?.id) {
               const { data, error } = await supabase.from("leads").select("id").eq("organization_id", org.id).eq("whatsapp_phone", waId).neq("stage", "Fechado").order("updated_at", {
                 ascending: false
@@ -303,12 +292,23 @@ Deno.serve(async (req)=>{
               });
               if (data?.id) lead = data;
             }
-            // 3) fallback por contact_phone
+            // 2) fallback por contact_phone
             if (!lead?.id) {
               const { data, error } = await supabase.from("leads").select("id").eq("organization_id", org.id).eq("contact_phone", waId).neq("stage", "Fechado").order("updated_at", {
                 ascending: false
               }).limit(1).maybeSingle();
               console.log("Lead lookup by contact_phone", {
+                data,
+                error
+              });
+              if (data?.id) lead = data;
+            }
+            // 3) fallback por contact_id
+            if (!lead?.id) {
+              const { data, error } = await supabase.from("leads").select("id").eq("organization_id", org.id).eq("contact_id", contact.id).neq("stage", "Fechado").order("updated_at", {
+                ascending: false
+              }).limit(1).maybeSingle();
+              console.log("Lead lookup by contact_id", {
                 data,
                 error
               });
