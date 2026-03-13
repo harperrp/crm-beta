@@ -4,13 +4,16 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { AlertTriangle, CheckCircle2, Loader2, QrCode, RefreshCw, Server } from "lucide-react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Loader2,
+  QrCode,
+  RefreshCw,
+  Server,
+} from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-codex/analyze-crm-architecture-and-messaging-flow-2icy4f
-
-
-main
 import {
   getWhatsAppVpsQrCode,
   getWhatsAppVpsStatus,
@@ -26,16 +29,11 @@ function normalizePhone(phone?: string | null) {
   return (phone || "").replace(/\D/g, "");
 }
 
-codex/analyze-crm-architecture-and-messaging-flow-2icy4f
-export function WhatsAppQRPanel({ leadId, leadPhone, leadName }: WhatsAppQRPanelProps) {
-=======
 export function WhatsAppQRPanel({
   leadId,
   leadPhone,
   leadName,
-  onMessageSent,
 }: WhatsAppQRPanelProps) {
- main
   const [message, setMessage] = useState("");
 
   const normalizedPhone = useMemo(() => normalizePhone(leadPhone), [leadPhone]);
@@ -52,13 +50,9 @@ export function WhatsAppQRPanel({
     queryFn: getWhatsAppVpsQrCode,
     enabled: Boolean(
       statusQuery.data?.serverOnline &&
- codex/analyze-crm-architecture-and-messaging-flow-2icy4f
-      !statusQuery.data?.whatsappConnected &&
-      (statusQuery.data?.state === "qr_ready" || statusQuery.data?.qrAvailable)
-
         !statusQuery.data?.whatsappConnected &&
-        (statusQuery.data?.state === "qr_ready" || statusQuery.data?.qrAvailable)
- main
+        (statusQuery.data?.state === "qr_ready" ||
+          statusQuery.data?.qrAvailable)
     ),
     refetchInterval: 10000,
     retry: false,
@@ -70,11 +64,14 @@ export function WhatsAppQRPanel({
         throw new Error("Selecione um lead válido para envio.");
       }
 
+      if (!normalizedPhone) {
+        throw new Error("Lead sem telefone válido para envio.");
+      }
+
       if (!message.trim()) {
         throw new Error("Digite uma mensagem antes de enviar.");
       }
 
- codex/analyze-crm-architecture-and-messaging-flow-2icy4f
       const { error } = await supabase.functions.invoke("wa-send-message", {
         body: {
           lead_id: leadId,
@@ -86,45 +83,10 @@ export function WhatsAppQRPanel({
 
       if (error) throw error;
     },
-    onSuccess: async () => {
+    onSuccess: () => {
       setMessage("");
-
-      const text = message.trim();
-
-      // envia mensagem pelo VPS
-      await sendWhatsAppVpsMessage({
-        phone: normalizedPhone,
-        text,
-      });
-
-      // salva outbound no banco
-      if (leadId) {
-        const { error } = await supabase.from("lead_messages").insert({
-          lead_id: leadId,
-          direction: "outbound",
-          message_text: text,
-          status: "sent",
-        });
-
-        if (error) {
-          console.error("Erro ao salvar outbound:", error);
-        }
-      }
-
-      return text;
-    },
-
-    onSuccess: async (text) => {
-      try {
-        await onMessageSent?.(text);
-      } finally {
-        setMessage("");
-      }
-
- main
       toast.success("Mensagem enviada via WhatsApp VPS");
     },
-
     onError: (error: any) => {
       toast.error("Falha no envio via VPS", {
         description: error?.message || "Não foi possível enviar a mensagem.",
@@ -133,19 +95,19 @@ export function WhatsAppQRPanel({
   });
 
   const isConnected = statusQuery.data?.whatsappConnected;
-  const isWaitingQr = !isConnected && statusQuery.data?.serverOnline && (statusQuery.data?.state === "qr_ready" || statusQuery.data?.qrAvailable);
 
   const isWaitingQr =
     !isConnected &&
     statusQuery.data?.serverOnline &&
-    (statusQuery.data?.state === "qr_ready" || statusQuery.data?.qrAvailable);
+    (statusQuery.data?.state === "qr_ready" ||
+      statusQuery.data?.qrAvailable);
 
   return (
     <div className="space-y-3 p-3">
-      <Card className="p-3 space-y-3">
+      <Card className="space-y-3 p-3">
         <div className="flex items-center justify-between gap-3">
           <div className="space-y-1">
-            <h3 className="font-semibold text-sm">WhatsApp VPS (QR Code)</h3>
+            <h3 className="text-sm font-semibold">WhatsApp VPS (QR Code)</h3>
             <p className="text-xs text-muted-foreground">
               Fluxo novo e isolado: conexão via VPS/Baileys.
             </p>
@@ -160,75 +122,67 @@ export function WhatsAppQRPanel({
               qrQuery.refetch();
             }}
           >
-            <RefreshCw className="h-3.5 w-3.5 mr-1" />
+            <RefreshCw className="mr-1 h-3.5 w-3.5" />
             Atualizar
           </Button>
         </div>
 
         <div className="flex flex-wrap gap-2">
           <Badge variant="outline">
-            <Server className="h-3 w-3 mr-1" />
+            <Server className="mr-1 h-3 w-3" />
             {statusQuery.isLoading
               ? "Verificando servidor..."
               : statusQuery.data?.serverOnline
-              ? "Servidor online"
-              : "Servidor offline"}
+                ? "Servidor online"
+                : "Servidor offline"}
           </Badge>
 
           <Badge variant={isConnected ? "default" : "secondary"}>
             {isConnected ? (
- codex/analyze-crm-architecture-and-messaging-flow-2icy4f
-              <><CheckCircle2 className="h-3 w-3 mr-1" /> WhatsApp conectado</>
-            ) : isWaitingQr ? (
-              <><QrCode className="h-3 w-3 mr-1" /> Aguardando leitura do QR</>
-
               <>
-                <CheckCircle2 className="h-3 w-3 mr-1" />
+                <CheckCircle2 className="mr-1 h-3 w-3" />
                 WhatsApp conectado
               </>
             ) : isWaitingQr ? (
               <>
-                <QrCode className="h-3 w-3 mr-1" />
+                <QrCode className="mr-1 h-3 w-3" />
                 Aguardando leitura do QR
               </>
- main
             ) : (
               <>
-                <QrCode className="h-3 w-3 mr-1" />
+                <QrCode className="mr-1 h-3 w-3" />
                 WhatsApp desconectado
               </>
             )}
           </Badge>
         </div>
 
- codex/analyze-crm-architecture-and-messaging-flow-2icy4f
         {statusQuery.isError && (
-          <div className="text-xs rounded-md border border-destructive/40 bg-destructive/5 text-destructive p-2 flex items-start gap-2">
-            <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+          <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-2 text-xs text-destructive">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
             <span>
-              Não foi possível conectar ao servidor VPS. Verifique a URL do ambiente e se o serviço está ativo na porta 3000.
+              Não foi possível conectar ao servidor VPS. Verifique a URL do
+              ambiente e se o serviço está ativo na porta 3000.
             </span>
           </div>
         )}
 
-
- main
         {isWaitingQr && (
-          <Card className="p-3 bg-muted/30 border-dashed">
-            <p className="text-xs text-muted-foreground mb-2">
+          <Card className="border-dashed bg-muted/30 p-3">
+            <p className="mb-2 text-xs text-muted-foreground">
               Escaneie o QR Code para autenticar o WhatsApp.
             </p>
 
             {qrQuery.isLoading ? (
-              <div className="h-40 flex items-center justify-center text-xs text-muted-foreground">
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              <div className="flex h-40 items-center justify-center text-xs text-muted-foreground">
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Carregando QR Code...
               </div>
             ) : qrQuery.data ? (
               <img
                 src={qrQuery.data}
                 alt="QR Code WhatsApp"
-                className="mx-auto w-48 h-48 rounded-md border bg-white p-2"
+                className="mx-auto h-48 w-48 rounded-md border bg-white p-2"
               />
             ) : (
               <div className="text-xs text-muted-foreground">
@@ -239,7 +193,7 @@ export function WhatsAppQRPanel({
         )}
       </Card>
 
-      <Card className="p-3 space-y-2">
+      <Card className="space-y-2 p-3">
         <p className="text-sm font-medium">Enviar mensagem via VPS</p>
 
         <p className="text-xs text-muted-foreground">
@@ -252,16 +206,25 @@ export function WhatsAppQRPanel({
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             placeholder="Digite a mensagem..."
-            onKeyDown={(e) => e.key === "Enter" && sendMutation.mutate()}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                sendMutation.mutate();
+              }
+            }}
           />
 
           <Button
             type="button"
             onClick={() => sendMutation.mutate()}
-            disabled={sendMutation.isPending || !message.trim() || !leadId || !normalizedPhone}
+            disabled={
+              sendMutation.isPending ||
+              !message.trim() ||
+              !leadId ||
+              !normalizedPhone
+            }
           >
             {sendMutation.isPending && (
-              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+              <Loader2 className="mr-1 h-4 w-4 animate-spin" />
             )}
             Enviar VPS
           </Button>
