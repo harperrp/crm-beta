@@ -122,12 +122,6 @@ export function WhatsAppInboxPage() {
         body: { lead_id: selectedLeadId, text: text.trim() },
       });
       if (error) throw error;
-      await db.from("lead_interactions").insert({
-        organization_id: activeOrgId!,
-        lead_id: selectedLeadId,
-        event_type: "message_sent",
-        payload: { content: text.trim() },
-      });
       setText("");
     },
     onSuccess: () => {
