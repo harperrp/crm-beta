@@ -34,8 +34,10 @@ export function LeadDetailPanel({ lead }: LeadDetailPanelProps) {
   const [followupTitle, setFollowupTitle] = useState("Retornar contato");
   const [followupDate, setFollowupDate] = useState("");
 
-  const { data: interactions = [], isLoading: interactionsLoading } = useLeadInteractions(activeOrgId, lead?.id);
-  const { data: followups = [], isLoading: followupsLoading } = useLeadFollowups(activeOrgId, lead?.id);
+  const { data: interactions = [], isLoading: interactionsLoading } =
+    useLeadInteractions(activeOrgId, lead?.id);
+  const { data: followups = [], isLoading: followupsLoading } =
+    useLeadFollowups(activeOrgId, lead?.id);
   const createInteraction = useCreateLeadInteraction(activeOrgId);
   const createFollowup = useCreateLeadFollowup(activeOrgId);
 
@@ -48,6 +50,7 @@ export function LeadDetailPanel({ lead }: LeadDetailPanelProps) {
 
   async function addNote() {
     if (!newNote.trim()) return;
+
     try {
       await createInteraction.mutateAsync({
         lead_id: lead.id,
@@ -57,7 +60,9 @@ export function LeadDetailPanel({ lead }: LeadDetailPanelProps) {
       setNewNote("");
       toast.success("Nota registrada");
     } catch (error: any) {
-      toast.error("Falha ao registrar nota", { description: error.message });
+      toast.error("Falha ao registrar nota", {
+        description: error.message,
+      });
     }
   }
 
@@ -74,32 +79,38 @@ export function LeadDetailPanel({ lead }: LeadDetailPanelProps) {
         due_at: new Date(followupDate).toISOString(),
         status: "pending",
       });
+
       await createInteraction.mutateAsync({
         lead_id: lead.id,
         event_type: "followup_scheduled",
         payload: { title: followupTitle, due_at: followupDate },
       });
+
       setFollowupDate("");
       toast.success("Follow-up agendado");
     } catch (error: any) {
-      toast.error("Falha ao agendar follow-up", { description: error.message });
+      toast.error("Falha ao agendar follow-up", {
+        description: error.message,
+      });
     }
   }
 
   return (
-    <Card className="h-full flex flex-col border-0 shadow-none">
-      <div className="p-4 border-b bg-gradient-to-r from-primary/10 to-transparent">
+    <Card className="flex h-full flex-col border-0 shadow-none">
+      <div className="border-b bg-gradient-to-r from-primary/10 to-transparent p-4">
         <div className="flex items-start justify-between">
           <div>
             <h2 className="text-lg font-bold">{lead.contractor_name}</h2>
-            <p className="text-xs text-muted-foreground mt-1">{lead.contact_phone || "Sem telefone"}</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {lead.contact_phone || "Sem telefone"}
+            </p>
           </div>
           <Badge variant="secondary">{lead.stage || "Sem etapa"}</Badge>
         </div>
       </div>
 
-      <Tabs defaultValue="whatsapp" className="flex-1 flex flex-col">
-        <TabsList className="mx-4 mt-3 grid grid-cols-4 w-auto">
+      <Tabs defaultValue="whatsapp" className="flex flex-1 flex-col">
+        <TabsList className="mx-4 mt-3 grid w-auto grid-cols-4">
           <TabsTrigger value="whatsapp">WhatsApp</TabsTrigger>
           <TabsTrigger value="timeline">Histórico</TabsTrigger>
           <TabsTrigger value="notes">Observações</TabsTrigger>
@@ -107,18 +118,24 @@ export function LeadDetailPanel({ lead }: LeadDetailPanelProps) {
         </TabsList>
 
         <TabsContent value="whatsapp" className="m-0 flex-1 min-h-0">
-          <Tabs defaultValue="cloud" className="h-full flex flex-col">
-            <TabsList className="mx-4 mt-3 grid grid-cols-2 w-auto">
+          <Tabs defaultValue="cloud" className="flex h-full flex-col">
+            <TabsList className="mx-4 mt-3 grid w-auto grid-cols-2">
               <TabsTrigger value="cloud">WhatsApp Cloud</TabsTrigger>
               <TabsTrigger value="vps">WhatsApp VPS</TabsTrigger>
             </TabsList>
+
             <TabsContent value="cloud" className="m-0 flex-1 min-h-0">
               <LeadMessagesThread leadId={lead.id} />
             </TabsContent>
-            <TabsContent value="vps" className="m-0 flex-1 flex flex-col min-h-0 overflow-auto">
+
+            <TabsContent
+              value="vps"
+              className="m-0 flex flex-1 flex-col min-h-0 overflow-auto"
+            >
               <div className="flex-1 min-h-0">
                 <LeadMessagesThread leadId={lead.id} />
               </div>
+
               <div className="border-t">
                 <WhatsAppQRPanel
                   leadId={lead.id}
@@ -134,16 +151,27 @@ export function LeadDetailPanel({ lead }: LeadDetailPanelProps) {
           <ScrollArea className="h-[380px] p-4">
             <div className="space-y-3">
               {interactionsLoading ? (
-                <p className="text-sm text-muted-foreground">Carregando histórico...</p>
+                <p className="text-sm text-muted-foreground">
+                  Carregando histórico...
+                </p>
               ) : interactions.length === 0 ? (
-                <EmptyState icon={Clock} title="Sem histórico" description="Eventos do lead aparecerão aqui." />
+                <EmptyState
+                  icon={Clock}
+                  title="Sem histórico"
+                  description="Eventos do lead aparecerão aqui."
+                />
               ) : (
                 interactions.map((item: any) => (
-                  <div key={item.id} className="border rounded-lg p-3">
+                  <div key={item.id} className="rounded-lg border p-3">
                     <div className="text-sm font-medium">{item.event_type}</div>
-                    {item.payload?.content && <p className="text-sm mt-1">{item.payload.content}</p>}
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {formatDistanceToNow(new Date(item.created_at), { addSuffix: true, locale: ptBR })}
+                    {item.payload?.content && (
+                      <p className="mt-1 text-sm">{item.payload.content}</p>
+                    )}
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {formatDistanceToNow(new Date(item.created_at), {
+                        addSuffix: true,
+                        locale: ptBR,
+                      })}
                     </p>
                   </div>
                 ))
@@ -152,49 +180,95 @@ export function LeadDetailPanel({ lead }: LeadDetailPanelProps) {
           </ScrollArea>
         </TabsContent>
 
-        <TabsContent value="notes" className="m-0 flex-1 flex flex-col">
+        <TabsContent value="notes" className="m-0 flex flex-1 flex-col">
           <ScrollArea className="h-[300px] p-4">
             <div className="space-y-2">
               {notes.map((note: any) => (
-                <div key={note.id} className="p-3 rounded-lg bg-muted/40">
+                <div key={note.id} className="rounded-lg bg-muted/40 p-3">
                   <p className="text-sm">{note.payload?.content || "Nota"}</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {formatDistanceToNow(new Date(note.created_at), { addSuffix: true, locale: ptBR })}
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {formatDistanceToNow(new Date(note.created_at), {
+                      addSuffix: true,
+                      locale: ptBR,
+                    })}
                   </p>
                 </div>
               ))}
             </div>
           </ScrollArea>
-          <div className="p-4 border-t flex gap-2">
-            <Textarea value={newNote} onChange={(e) => setNewNote(e.target.value)} placeholder="Adicionar observação comercial..." className="min-h-[60px]" />
-            <Button size="icon" onClick={addNote} disabled={createInteraction.isPending}><Send className="h-4 w-4" /></Button>
+
+          <div className="flex gap-2 border-t p-4">
+            <Textarea
+              value={newNote}
+              onChange={(e) => setNewNote(e.target.value)}
+              placeholder="Adicionar observação comercial..."
+              className="min-h-[60px]"
+            />
+            <Button
+              size="icon"
+              onClick={addNote}
+              disabled={createInteraction.isPending}
+            >
+              <Send className="h-4 w-4" />
+            </Button>
           </div>
         </TabsContent>
 
-        <TabsContent value="followup" className="m-0 flex-1 p-4 space-y-3">
+        <TabsContent value="followup" className="m-0 flex-1 space-y-3 p-4">
           <div className="grid gap-2 sm:grid-cols-[1fr,180px,auto]">
-            <Input value={followupTitle} onChange={(e) => setFollowupTitle(e.target.value)} placeholder="Título do follow-up" />
-            <Input type="datetime-local" value={followupDate} onChange={(e) => setFollowupDate(e.target.value)} />
-            <Button className="gap-1" onClick={addFollowup} disabled={createFollowup.isPending}><Plus className="h-4 w-4" /> Agendar</Button>
+            <Input
+              value={followupTitle}
+              onChange={(e) => setFollowupTitle(e.target.value)}
+              placeholder="Título do follow-up"
+            />
+            <Input
+              type="datetime-local"
+              value={followupDate}
+              onChange={(e) => setFollowupDate(e.target.value)}
+            />
+            <Button
+              className="gap-1"
+              onClick={addFollowup}
+              disabled={createFollowup.isPending}
+            >
+              <Plus className="h-4 w-4" />
+              Agendar
+            </Button>
           </div>
 
           {followupsLoading ? (
-            <p className="text-sm text-muted-foreground">Carregando follow-ups...</p>
+            <p className="text-sm text-muted-foreground">
+              Carregando follow-ups...
+            </p>
           ) : followups.length === 0 ? (
-            <EmptyState icon={Calendar} title="Sem follow-up" description="Agende lembretes para não perder negociações." />
+            <EmptyState
+              icon={Calendar}
+              title="Sem follow-up"
+              description="Agende lembretes para não perder negociações."
+            />
           ) : (
             <div className="space-y-2">
               {followups.map((f: any) => (
-                <div key={f.id} className="border rounded-lg p-3 flex items-center justify-between">
+                <div
+                  key={f.id}
+                  className="flex items-center justify-between rounded-lg border p-3"
+                >
                   <div>
                     <p className="text-sm font-medium">{f.title}</p>
-                    <p className="text-xs text-muted-foreground">{format(new Date(f.due_at), "dd/MM/yyyy HH:mm")}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {format(new Date(f.due_at), "dd/MM/yyyy HH:mm")}
+                    </p>
                   </div>
-                  <Badge variant={f.status === "overdue" ? "destructive" : "outline"}>{f.status}</Badge>
+                  <Badge
+                    variant={f.status === "overdue" ? "destructive" : "outline"}
+                  >
+                    {f.status}
+                  </Badge>
                 </div>
               ))}
             </div>
           )}
+
           <LeadFinancialSummary lead={lead} orgId={activeOrgId || ""} />
         </TabsContent>
       </Tabs>
