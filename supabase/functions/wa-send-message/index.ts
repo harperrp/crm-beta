@@ -252,6 +252,19 @@ async function saveOutboundMessage(params: {
 }) {
   if (!params.leadId) return;
 
+  const providerResponse =
+    params.providerResponse && typeof params.providerResponse === "object"
+      ? (params.providerResponse as Record<string, unknown>)
+      : null;
+  const messages = Array.isArray(providerResponse?.messages)
+    ? (providerResponse?.messages as Record<string, unknown>[])
+    : [];
+  const waMessageId =
+    (messages[0]?.id as string | undefined) ||
+    (providerResponse?.messageId as string | undefined) ||
+    (providerResponse?.id as string | undefined) ||
+    null;
+
   const { error } = await supabase.from("lead_messages").insert({
     organization_id: params.organizationId,
     lead_id: params.leadId,
@@ -264,6 +277,8 @@ async function saveOutboundMessage(params: {
       provider: params.mode,
       response: params.providerResponse,
     },
+    external_message_id: waMessageId,
+    wa_message_id: waMessageId,
     status: "sent",
     sent_at: new Date().toISOString(),
   });

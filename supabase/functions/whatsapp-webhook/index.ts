@@ -221,17 +221,19 @@ Deno.serve(async (req)=>{
         for (const statusItem of statuses){
           try {
             console.log("Status payload", statusItem);
-            const waId = normalizePhone(statusItem?.recipient_id ?? "");
             const statusValue = statusItem?.status ?? null;
-            if (!waId || !statusValue) continue;
-            const { error: statusRpcError } = await supabase.rpc("register_whatsapp_inbound", {
+            const statusAtRaw = statusItem?.timestamp;
+            const statusAt = statusAtRaw ? new Date(Number(statusAtRaw) * 1000).toISOString() : new Date().toISOString();
+            const waMessageId = statusItem?.id ?? statusItem?.message_id ?? null;
+            const externalMessageId = statusItem?.external_message_id ?? statusItem?.id ?? null;
+            if (!statusValue || !waMessageId && !externalMessageId) continue;
+            const { error: statusRpcError } = await supabase.rpc("register_whatsapp_status_update", {
               _org_id: org.id,
-              _lead_id: null,
-              _contact_phone: waId,
-              _contact_name: null,
-              _stage: null,
-              _message_text: `[status] ${statusValue}`,
-              _message_at: new Date().toISOString()
+              _wa_message_id: waMessageId,
+              _external_message_id: externalMessageId,
+              _status: statusValue,
+              _status_at: statusAt,
+              _payload: statusItem
             });
             console.log("Status RPC result", {
               statusRpcError
