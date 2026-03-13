@@ -20,6 +20,7 @@ import { UsersPage } from "@/pages/Users";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import { RoleRoute } from "@/components/auth/RoleRoute";
 import { ArtistDashboardPage } from "@/pages/ArtistDashboard";
 import { SuperAdminPage } from "@/pages/SuperAdmin";
 import { WhatsAppInboxPage } from "@/pages/WhatsAppInbox";
@@ -41,23 +42,100 @@ const App = () => (
               <Route path="/login" element={<Login />} />
 
               {/* Protected App Routes */}
+              {/* RLS in Supabase remains the primary data security layer; RoleRoute is UX + defense-in-depth. */}
               <Route element={<ProtectedRoute />}>
                 <Route path="/app" element={<AppShell />}>
                   <Route index element={<DashboardPage />} />
                   <Route path="dashboard" element={<DashboardPage />} />
-                  <Route path="artist" element={<ArtistDashboardPage />} />
-                  <Route path="calendar" element={<ArtistCalendarPage />} />
-                  <Route path="leads" element={<LeadsPage />} />
-                  <Route path="whatsapp" element={<WhatsAppInboxPage />} />
-                  <Route path="contracts" element={<ContractsCrudPage />} />
-                  <Route path="contacts" element={<ContactsPage />} />
-                  
-                  <Route path="tasks" element={<TasksPage />} />
-                  <Route path="team" element={<TeamPage />} />
-                  <Route path="users" element={<UsersPage />} />
+                  <Route
+                    path="artist"
+                    element={
+                      <RoleRoute allowedRoles={["artista"]}>
+                        <ArtistDashboardPage />
+                      </RoleRoute>
+                    }
+                  />
+                  <Route
+                    path="calendar"
+                    element={
+                      <RoleRoute allowedRoles={["artista"]}>
+                        <ArtistCalendarPage />
+                      </RoleRoute>
+                    }
+                  />
+                  <Route
+                    path="leads"
+                    element={
+                      <RoleRoute allowedRoles={["comercial", "financeiro", "admin"]}>
+                        <LeadsPage />
+                      </RoleRoute>
+                    }
+                  />
+                  <Route
+                    path="whatsapp"
+                    element={
+                      <RoleRoute allowedRoles={["comercial", "financeiro", "admin"]}>
+                        <WhatsAppInboxPage />
+                      </RoleRoute>
+                    }
+                  />
+                  <Route
+                    path="contracts"
+                    element={
+                      <RoleRoute allowedRoles={["comercial", "financeiro", "admin"]}>
+                        <ContractsCrudPage />
+                      </RoleRoute>
+                    }
+                  />
+                  <Route
+                    path="contacts"
+                    element={
+                      <RoleRoute allowedRoles={["comercial", "financeiro", "admin"]}>
+                        <ContactsPage />
+                      </RoleRoute>
+                    }
+                  />
+                  <Route
+                    path="tasks"
+                    element={
+                      <RoleRoute allowedRoles={["artista"]}>
+                        <TasksPage />
+                      </RoleRoute>
+                    }
+                  />
+                  <Route
+                    path="team"
+                    element={
+                      <RoleRoute allowedRoles={["admin"]}>
+                        <TeamPage />
+                      </RoleRoute>
+                    }
+                  />
+                  <Route
+                    path="users"
+                    element={
+                      <RoleRoute allowedRoles={["admin"]}>
+                        <UsersPage />
+                      </RoleRoute>
+                    }
+                  />
                   <Route path="map" element={<MapViewPage />} />
-                  <Route path="financial" element={<FinancialPage />} />
-                  <Route path="admin" element={<SuperAdminPage />} />
+                  <Route
+                    path="financial"
+                    element={
+                      <RoleRoute allowedRoles={["financeiro", "admin"]}>
+                        <FinancialPage />
+                      </RoleRoute>
+                    }
+                  />
+                  <Route
+                    path="admin"
+                    element={
+                      <RoleRoute allowedRoles={["admin"]}>
+                        <SuperAdminPage />
+                      </RoleRoute>
+                    }
+                  />
                 </Route>
               </Route>
 
