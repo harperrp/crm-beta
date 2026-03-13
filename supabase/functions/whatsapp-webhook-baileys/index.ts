@@ -1,7 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.91.0";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-hub-signature-256",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS"
 };
 function json(data, status = 200) {
@@ -15,6 +15,29 @@ function json(data, status = 200) {
 }
 function normalizePhone(phone) {
   return (phone || "").replace(/\D/g, "");
+}
+function toHex(buffer) {
+  return [
+    ...new Uint8Array(buffer)
+  ].map((b)=>b.toString(16).padStart(2, "0")).join("");
+}
+async function signHmacSha256(secret, payload) {
+  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), {
+    name: "HMAC",
+    hash: "SHA-256"
+  }, false, [
+    "sign"
+  ]);
+  const signature = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(payload));
+  return toHex(signature);
+}
+function timingSafeEqual(a, b) {
+  if (a.length !== b.length) return false;
+  let mismatch = 0;
+  for(let i = 0; i < a.length; i++){
+    mismatch |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return mismatch === 0;
 }
 Deno.serve(async (req)=>{
   if (req.method === "OPTIONS") {
@@ -30,18 +53,35 @@ Deno.serve(async (req)=>{
   try {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
     const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-    const DEFAULT_ORG_ID = Deno.env.get("WHATSAPP_DEFAULT_ORGANIZATION_ID") ?? "";
+    const WEBHOOK_SECRET = Deno.env.get("WHATSAPP_BAILEYS_WEBHOOK_SECRET") ?? Deno.env.get("WHATSAPP_APP_SECRET") ?? "";
     console.log("ENV CHECK", {
       hasSupabaseUrl: !!SUPABASE_URL,
       hasServiceRole: !!SERVICE_ROLE_KEY,
-      defaultOrgId: DEFAULT_ORG_ID
+      hasWebhookSecret: !!WEBHOOK_SECRET
     });
     if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
       return json({
         error: "Missing Supabase env vars"
       }, 500);
     }
-    const body = await req.json();
+    const rawBody = await req.text();
+    if (WEBHOOK_SECRET) {
+      const signatureHeader = req.headers.get("x-hub-signature-256") || "";
+      if (!signatureHeader.startsWith("sha256=")) {
+        return json({
+          error: "Missing or invalid x-hub-signature-256 header"
+        }, 401);
+      }
+      const expected = await signHmacSha256(WEBHOOK_SECRET, rawBody);
+      const provided = signatureHeader.slice("sha256=".length);
+      const signatureMatches = timingSafeEqual(provided, expected);
+      if (!signatureMatches) {
+        return json({
+          error: "Invalid webhook signature"
+        }, 401);
+      }
+    }
+    const body = rawBody ? JSON.parse(rawBody) : {};
     console.log("BODY RECEIVED", JSON.stringify(body));
     const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
     if (body?.provider !== "baileys") {
@@ -50,11 +90,23 @@ Deno.serve(async (req)=>{
         error: "Invalid provider"
       }, 400);
     }
-    const orgId = DEFAULT_ORG_ID;
-    if (!orgId) {
-      console.error("MISSING ORG ID");
+    const instanceId = body?.instance_id ?? body?.data?.instance_id ?? "";
+    if (!instanceId) {
+      console.error("MISSING INSTANCE ID");
       return json({
-        error: "Missing organization id"
+        error: "Missing instance_id"
+      }, 400);
+    }
+    const { data: instance, error: instanceError } = await supabase.from("whatsapp_instances").select("id, organization_id").eq("id", instanceId).maybeSingle();
+    console.log("INSTANCE LOOKUP", {
+      instance,
+      instanceError
+    });
+    const orgId = instance?.organization_id;
+    if (!orgId) {
+      return json({
+        error: "Invalid instance_id mapping",
+        details: instanceError
       }, 400);
     }
     const phone = normalizePhone(body?.data?.phone ?? "");
@@ -180,6 +232,7 @@ Deno.serve(async (req)=>{
     const { error: leadMessageError } = await supabase.from("lead_messages").insert({
       organization_id: org.id,
       lead_id: lead.id,
+      instance_id: instanceId,
       direction: "inbound",
       message_text: text,
       message_type: "text",
@@ -196,6 +249,57 @@ Deno.serve(async (req)=>{
       return json({
         error: "Error inserting lead_messages",
         details: leadMessageError
+      }, 500);
+    }
+    const { data: chat, error: chatError } = await supabase.from("whatsapp_chats").upsert({
+      organization_id: org.id,
+      instance_id: instanceId,
+      lead_id: lead.id,
+      contact_phone: phone,
+      contact_name: "Lead WhatsApp",
+      chat_type: "individual",
+      status: "open",
+      last_message: text,
+      last_message_at: now,
+      unread_count: 1,
+      metadata: {
+        source: "whatsapp_baileys"
+      }
+    }, {
+      onConflict: "instance_id,contact_phone"
+    }).select("id").single();
+    console.log("WHATSAPP CHAT UPSERT", {
+      chat,
+      chatError
+    });
+    if (chatError || !chat?.id) {
+      return json({
+        error: "Error upserting whatsapp_chats",
+        details: chatError
+      }, 500);
+    }
+    const { error: whatsappMessageError } = await supabase.from("whatsapp_messages").insert({
+      organization_id: org.id,
+      instance_id: instanceId,
+      chat_id: chat.id,
+      lead_id: lead.id,
+      external_message_id: body?.data?.id ?? rawMessage?.id ?? null,
+      direction: "inbound",
+      message_type: "text",
+      message_text: text,
+      from_number: phone,
+      to_number: null,
+      status: "received",
+      raw_payload: body,
+      delivered_at: now
+    });
+    console.log("WHATSAPP MESSAGE INSERT", {
+      whatsappMessageError
+    });
+    if (whatsappMessageError) {
+      return json({
+        error: "Error inserting whatsapp_messages",
+        details: whatsappMessageError
       }, 500);
     }
     const { error: interactionError } = await supabase.from("lead_interactions").insert({
