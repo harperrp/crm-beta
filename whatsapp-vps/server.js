@@ -1,3 +1,4 @@
+const crypto = require("crypto");
 const express = require("express");
 const cors = require("cors");
 const {
@@ -7,8 +8,39 @@ const {
 } = require("@whiskeysockets/baileys");
 const QRCode = require("qrcode");
 
-const WEBHOOK_URL =
-  "https://uhumbtpkioisepqiqotl.supabase.co/functions/v1/whatsapp-webhook-baileys";
+const WEBHOOK_URL = process.env.WEBHOOK_URL;
+const WEBHOOK_AUTH_TOKEN = process.env.WEBHOOK_AUTH_TOKEN;
+const WEBHOOK_HMAC_SECRET = process.env.WEBHOOK_HMAC_SECRET;
+const VPS_INTERNAL_API_KEY = process.env.VPS_INTERNAL_API_KEY;
+const PORT = Number(process.env.PORT || 3000);
+
+function validateRequiredEnv() {
+  const missing = [];
+
+  if (!WEBHOOK_URL) missing.push("WEBHOOK_URL");
+  if (!VPS_INTERNAL_API_KEY) missing.push("VPS_INTERNAL_API_KEY");
+  if (!WEBHOOK_AUTH_TOKEN && !WEBHOOK_HMAC_SECRET) {
+    missing.push("WEBHOOK_AUTH_TOKEN ou WEBHOOK_HMAC_SECRET");
+  }
+
+  if (missing.length > 0) {
+    const details = missing.join(", ");
+    throw new Error(`Variáveis obrigatórias ausentes: ${details}`);
+  }
+}
+
+function authMiddleware(req, res, next) {
+  const apiKey = req.header("x-api-key") || req.header("authorization")?.replace(/^Bearer\s+/i, "");
+
+  if (!apiKey || apiKey !== VPS_INTERNAL_API_KEY) {
+    return res.status(401).json({
+      success: false,
+      error: "Não autorizado: API key inválida ou ausente",
+    });
+  }
+
+  return next();
+}
 
 const app = express();
 app.use(cors());
@@ -26,6 +58,77 @@ function normalizeNumber(number) {
 
 function toJid(number) {
   return `${normalizeNumber(number)}@s.whatsapp.net`;
+}
+
+function buildWebhookHeaders(payload) {
+  const headers = {
+    "Content-Type": "application/json",
+  };
+
+  if (WEBHOOK_AUTH_TOKEN) {
+    headers.Authorization = `Bearer ${WEBHOOK_AUTH_TOKEN}`;
+  }
+
+  if (WEBHOOK_HMAC_SECRET) {
+    const signature = crypto
+      .createHmac("sha256", WEBHOOK_HMAC_SECRET)
+      .update(payload)
+      .digest("hex");
+    headers["x-webhook-signature-256"] = `sha256=${signature}`;
+  }
+
+  return headers;
+}
+
+function getInstanceStatusPayload() {
+  return {
+    status: connectionStatus,
+    connected: connectionStatus === "connected",
+    qrAvailable: !!qrCodeDataURL,
+    lastQrAt,
+  };
+}
+
+function getInstanceQrPayload() {
+  return {
+    status: connectionStatus,
+    qrCode: qrCodeDataURL,
+    qrAvailable: !!qrCodeDataURL,
+    lastQrAt,
+  };
+}
+
+function renderQrHtml() {
+  return `
+    <html>
+      <head>
+        <title>WhatsApp QR</title>
+        <meta http-equiv="refresh" content="5" />
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 30px;
+          }
+          img {
+            max-width: 320px;
+            border: 1px solid #ddd;
+            padding: 12px;
+            border-radius: 12px;
+          }
+        </style>
+      </head>
+      <body>
+        <h2>Escaneie o QR do WhatsApp</h2>
+        <img src="${qrCodeDataURL}" alt="QR Code" />
+        <p>Status: ${connectionStatus}</p>
+        <p>Gerado em: ${lastQrAt || "-"}</p>
+      </body>
+    </html>
+  `;
 }
 
 async function startWhatsApp() {
@@ -74,14 +177,11 @@ async function startWhatsApp() {
             },
           };
 
+          const body = JSON.stringify(payload);
           const response = await fetch(WEBHOOK_URL, {
             method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization":
-                "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVodW1idHBraW9pc2VwcWlxb3RsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE5MDc2ODMsImV4cCI6MjA4NzQ4MzY4M30.zrh-0co_dhQTFg55Ou2V9pF1udV_XvQTthqHrj1fafI",
-            },
-            body: JSON.stringify(payload),
+            headers: buildWebhookHeaders(body),
+            body,
           });
 
           console.log("WEBHOOK ENVIADO:", response.status);
@@ -118,8 +218,6 @@ async function startWhatsApp() {
 
         connectionStatus = "disconnected";
 
-        // Não apaga imediatamente o QR.
-        // Isso ajuda a manter o último QR disponível no endpoint.
         if (statusCode !== DisconnectReason.loggedOut) {
           if (reconnectTimeout) clearTimeout(reconnectTimeout);
           reconnectTimeout = setTimeout(() => {
@@ -143,64 +241,43 @@ async function startWhatsApp() {
   }
 }
 
-app.get("/status", (req, res) => {
-  res.json({
-    status: connectionStatus,
-    connected: connectionStatus === "connected",
-    qrAvailable: !!qrCodeDataURL,
-    lastQrAt,
-  });
+app.get("/status", authMiddleware, (req, res) => {
+  res.json(getInstanceStatusPayload());
 });
 
-app.get("/qr", (req, res) => {
-  res.json({
-    status: connectionStatus,
-    qrCode: qrCodeDataURL,
-    qrAvailable: !!qrCodeDataURL,
-    lastQrAt,
-  });
+app.get("/qr", authMiddleware, (req, res) => {
+  res.json(getInstanceQrPayload());
 });
 
-app.get("/qr-image", (req, res) => {
+app.get("/qr-image", authMiddleware, (req, res) => {
   if (!qrCodeDataURL) {
     return res
       .status(404)
       .send("<h1>QR ainda não disponível. Atualize em alguns segundos.</h1>");
   }
 
-  return res.send(`
-    <html>
-      <head>
-        <title>WhatsApp QR</title>
-        <meta http-equiv="refresh" content="5" />
-        <style>
-          body {
-            font-family: Arial, sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 30px;
-          }
-          img {
-            max-width: 320px;
-            border: 1px solid #ddd;
-            padding: 12px;
-            border-radius: 12px;
-          }
-        </style>
-      </head>
-      <body>
-        <h2>Escaneie o QR do WhatsApp</h2>
-        <img src="${qrCodeDataURL}" alt="QR Code" />
-        <p>Status: ${connectionStatus}</p>
-        <p>Gerado em: ${lastQrAt || "-"}</p>
-      </body>
-    </html>
-  `);
+  return res.send(renderQrHtml());
 });
 
-app.post("/send-message", async (req, res) => {
+app.get("/instance/status", authMiddleware, (req, res) => {
+  res.json(getInstanceStatusPayload());
+});
+
+app.get("/instance/qr", authMiddleware, (req, res) => {
+  res.json(getInstanceQrPayload());
+});
+
+app.get("/instance/qr-image", authMiddleware, (req, res) => {
+  if (!qrCodeDataURL) {
+    return res
+      .status(404)
+      .send("<h1>QR ainda não disponível. Atualize em alguns segundos.</h1>");
+  }
+
+  return res.send(renderQrHtml());
+});
+
+app.post("/send-message", authMiddleware, async (req, res) => {
   try {
     if (!sock || connectionStatus !== "connected") {
       return res.status(400).json({
@@ -233,7 +310,27 @@ app.post("/send-message", async (req, res) => {
   }
 });
 
-app.post("/logout", async (req, res) => {
+app.post("/logout", authMiddleware, async (req, res) => {
+  try {
+    if (sock) {
+      await sock.logout();
+    }
+
+    qrCodeDataURL = null;
+    lastQrAt = null;
+    connectionStatus = "disconnected";
+
+    return res.json({ success: true });
+  } catch (error) {
+    console.error("ERRO AO DESCONECTAR:", error);
+    return res.status(500).json({
+      success: false,
+      error: error?.message || "Erro ao desconectar",
+    });
+  }
+});
+
+app.post("/instance/logout", authMiddleware, async (req, res) => {
   try {
     if (sock) {
       await sock.logout();
@@ -257,7 +354,13 @@ app.get("/", (req, res) => {
   res.send("WhatsApp server online");
 });
 
-const PORT = 3000;
+try {
+  validateRequiredEnv();
+} catch (error) {
+  console.error("ERRO DE CONFIGURAÇÃO:", error.message);
+  process.exit(1);
+}
+
 app.listen(PORT, () => {
   console.log(`SERVIDOR RODANDO NA PORTA ${PORT}`);
   startWhatsApp();
