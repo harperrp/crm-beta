@@ -3,6 +3,9 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
+const INTERNAL_WEBHOOK_SECRET =
+  Deno.env.get("WA_SEND_INTERNAL_SECRET") ?? "";
 const ACCESS_TOKEN = Deno.env.get("WHATSAPP_ACCESS_TOKEN") ?? "";
 const PHONE_NUMBER_ID = Deno.env.get("WHATSAPP_PHONE_NUMBER_ID") ?? "";
 const WHATSAPP_SERVER_URL =
@@ -181,6 +184,8 @@ async function saveInteraction(params: {
   text: string;
   mode: string;
   to: string;
+  requestedByUserId?: string | null;
+  isInternalRequest: boolean;
 }) {
   if (!params.leadId) return;
 
@@ -199,6 +204,7 @@ async function saveInteraction(params: {
       organization_id: params.organizationId,
       lead_id: params.leadId,
       event_type: "message_sent",
+      requested_by_user_id: params.requestedByUserId ?? null,
       payload: nextPayload,
     });
 
@@ -213,6 +219,8 @@ async function saveInteraction(params: {
         metadata: {
           to: params.to,
           provider: params.mode,
+          requested_by_user_id: params.requestedByUserId ?? null,
+          requested_by_internal: params.isInternalRequest,
         },
       });
 
@@ -239,6 +247,57 @@ async function saveInteraction(params: {
   if (leadError) {
     console.warn("Não foi possível atualizar lead:", leadError);
   }
+}
+
+async function authenticateEndUser(req: Request) {
+  const authHeader = req.headers.get("Authorization");
+
+  if (!authHeader) return null;
+
+  const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    global: {
+      headers: {
+        Authorization: authHeader,
+      },
+    },
+  });
+
+  const {
+    data: { user },
+    error,
+  } = await userClient.auth.getUser();
+
+  if (error || !user) {
+    return null;
+  }
+
+  return user;
+}
+
+function isTrustedInternalRequest(req: Request) {
+  if (!INTERNAL_WEBHOOK_SECRET) return false;
+
+  const providedSecret = req.headers.get("x-internal-secret") || "";
+
+  return providedSecret === INTERNAL_WEBHOOK_SECRET;
+}
+
+async function hasMembership(userId: string, organizationId: string | null) {
+  if (!organizationId) return false;
+
+  const { data, error } = await supabase
+    .from("memberships")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("organization_id", organizationId)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Erro ao validar membership:", error);
+    throw new Error("Erro ao validar membership");
+  }
+
+  return Boolean(data?.id);
 }
 
 async function saveOutboundMessage(params: {
@@ -305,10 +364,12 @@ serve(async (req) => {
   }
 
   try {
+    const isInternalRequest = isTrustedInternalRequest(req);
     const body = await req.json();
     const leadId = resolveLeadIdFromBody(body);
     const mode = body.mode || body.provider || "cloud";
     const text = String(body.text || body.message || "").trim();
+    let requestedByUserId: string | null = null;
 
     if (!text) {
       return json(
@@ -330,6 +391,15 @@ serve(async (req) => {
     if (leadId) {
       resolvedLead = await resolveLeadPhone(leadId);
 
+      if (!resolvedLead) {
+        return json(
+          {
+            error: "Acesso negado: lead inexistente",
+          },
+          403
+        );
+      }
+
       if (!to && !resolvedLead?.phone) {
         return json(
           {
@@ -342,6 +412,44 @@ serve(async (req) => {
       if (!to && resolvedLead?.phone) {
         to = resolvedLead.phone;
       }
+    }
+
+    if (!isInternalRequest) {
+      const authenticatedUser = await authenticateEndUser(req);
+
+      if (!authenticatedUser) {
+        return json(
+          {
+            error: "Acesso negado: usuário não autenticado",
+          },
+          403
+        );
+      }
+
+      if (!resolvedLead) {
+        return json(
+          {
+            error: "Acesso negado: lead inexistente",
+          },
+          403
+        );
+      }
+
+      const canAccessLead = await hasMembership(
+        authenticatedUser.id,
+        resolvedLead.organization_id
+      );
+
+      if (!canAccessLead) {
+        return json(
+          {
+            error: "Acesso negado: usuário sem membership na organização do lead",
+          },
+          403
+        );
+      }
+
+      requestedByUserId = authenticatedUser.id;
     }
 
     if (!to) {
@@ -377,6 +485,8 @@ serve(async (req) => {
       text,
       mode,
       to,
+      requestedByUserId,
+      isInternalRequest,
     });
 
     await saveOutboundMessage({
