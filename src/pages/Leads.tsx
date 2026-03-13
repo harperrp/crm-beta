@@ -28,6 +28,7 @@ import { LeadDetailPanel } from "@/components/leads/LeadDetailPanel";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ExportButton } from "@/components/ui/export-button";
 import { useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/queryKeys";
 import {
   Select,
   SelectContent,
@@ -199,7 +200,10 @@ export function LeadsPage() {
     }
 
     setWaText("");
-    queryClient.invalidateQueries({ queryKey: ["lead_messages", selectedLeadId] });
+    queryClient.invalidateQueries({
+      queryKey: queryKeys.leadMessages(selectedLeadId, activeOrgId),
+      exact: true,
+    });
     queryClient.invalidateQueries({ queryKey: ["leads", activeOrgId] });
     toast.success("Mensagem enviada");
   }

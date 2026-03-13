@@ -8,6 +8,7 @@ import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { useOrg } from "@/providers/OrgProvider";
+import { queryKeys } from "@/lib/queryKeys";
 
 const typeIcons: Record<string, any> = {
   text: MessageCircle,
@@ -38,10 +39,16 @@ export function LeadMessagesThread({ leadId }: LeadMessagesThreadProps) {
           event: "*",
           schema: "public",
           table: "lead_messages",
-          filter: `organization_id=eq.${activeOrgId}`,
+          filter: `lead_id=eq.${leadId}`,
         },
-        () => {
-          qc.invalidateQueries({ queryKey: ["lead_messages", leadId, activeOrgId] });
+        (payload) => {
+          const payloadOrgId = payload.new?.organization_id ?? payload.old?.organization_id;
+          if (activeOrgId && payloadOrgId && payloadOrgId !== activeOrgId) return;
+
+          qc.invalidateQueries({
+            queryKey: queryKeys.leadMessages(leadId, activeOrgId),
+            exact: true,
+          });
         }
       )
       .subscribe();
