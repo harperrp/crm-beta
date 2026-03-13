@@ -93,6 +93,15 @@ Edge Functions (secrets Supabase):
 - `SUPABASE_SERVICE_ROLE_KEY=<service_role key do projeto acima>`
 - `WHATSAPP_APP_SECRET=<App Secret do app WhatsApp>` (**obrigatório em ambientes não-locais; a função falha com HTTP 500 se estiver ausente**)
 
+WhatsApp VPS (`whatsapp-vps/.env` ou variáveis de ambiente no serviço):
+
+- `WEBHOOK_URL=https://uhumbtpkioisepqiqotl.supabase.co/functions/v1/whatsapp-webhook-baileys` (**obrigatório**)
+- `WEBHOOK_AUTH_TOKEN=<token bearer para autenticar no webhook>` (**obrigatório se `WEBHOOK_HMAC_SECRET` não for informado**)
+- `WEBHOOK_HMAC_SECRET=<segredo para assinar payload com HMAC SHA-256>` (**opcional, mas obrigatório se `WEBHOOK_AUTH_TOKEN` não for informado**)
+- `VPS_INTERNAL_API_KEY=<chave interna para endpoints administrativos da VPS>` (**obrigatório**)
+
+> O servidor `whatsapp-vps/server.js` faz validação no startup e encerra com erro explícito se faltar qualquer variável crítica.
+
 > Observação: o frontend e as edge functions possuem validações de segurança para falhar caso um binding de outro projeto seja configurado por engano.
 
 ### Webhook do WhatsApp (assinatura obrigatória)
@@ -101,6 +110,12 @@ Edge Functions (secrets Supabase):
 - Em ambiente não-local sem esse secret, a função falha no startup e também retorna `500` nas requisições.
 - Requisições `POST` sem `x-hub-signature-256` no formato `sha256=...` são rejeitadas com `401`.
 - Assinaturas inválidas continuam sendo rejeitadas com comparação timing-safe e resposta `401`.
+
+### Secrets em produção (VPS + Supabase)
+
+- **VPS**: configure `WEBHOOK_URL`, `VPS_INTERNAL_API_KEY` e pelo menos um entre `WEBHOOK_AUTH_TOKEN` ou `WEBHOOK_HMAC_SECRET` no gerenciador de ambiente do servidor (systemd, PM2, Docker, etc.).
+- **Supabase Edge Functions**: mantenha `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` e `WHATSAPP_APP_SECRET` em `Project Settings → Edge Functions Secrets`.
+- **Integração segura recomendada**: usar `WEBHOOK_HMAC_SECRET` (assinatura) e manter `WEBHOOK_AUTH_TOKEN` como camada adicional opcional.
 
 # CRM Beta
 
@@ -130,4 +145,3 @@ WhatsApp VPS → Node.js Baileys server
 src/ → frontend
 supabase/ → database and edge functions
 whatsapp-vps/ → QR WhatsApp server
-
