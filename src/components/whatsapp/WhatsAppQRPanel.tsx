@@ -37,11 +37,7 @@ export function WhatsAppQRPanel({ leadPhone, leadName, onMessageSent }: WhatsApp
   const qrQuery = useQuery({
     queryKey: ["whatsapp_vps_qr"],
     queryFn: getWhatsAppVpsQrCode,
-    enabled: Boolean(
-      statusQuery.data?.serverOnline &&
-      !statusQuery.data?.whatsappConnected &&
-      (statusQuery.data?.state === "qr_ready" || statusQuery.data?.qrAvailable)
-    ),
+    enabled: Boolean(statusQuery.data?.serverOnline && !statusQuery.data?.whatsappConnected),
     refetchInterval: 10000,
     retry: false,
   });
@@ -76,7 +72,7 @@ export function WhatsAppQRPanel({ leadPhone, leadName, onMessageSent }: WhatsApp
   });
 
   const isConnected = statusQuery.data?.whatsappConnected;
-  const isWaitingQr = !isConnected && statusQuery.data?.serverOnline && (statusQuery.data?.state === "qr_ready" || statusQuery.data?.qrAvailable);
+  const isWaitingQr = !isConnected && statusQuery.data?.serverOnline;
 
   return (
     <div className="space-y-3 p-3">

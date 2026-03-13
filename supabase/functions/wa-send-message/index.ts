@@ -205,14 +205,16 @@ serve(async (req)=>{
     }
     let to = normalize(body.to || "");
     let resolvedLead = null;
-    if (!to && leadId) {
+    if (leadId) {
       resolvedLead = await resolveLeadPhone(leadId);
-      if (!resolvedLead?.phone) {
+      if (!to && !resolvedLead?.phone) {
         return json({
           error: "Lead sem telefone válido"
         }, 400);
       }
-      to = resolvedLead.phone;
+      if (!to && resolvedLead?.phone) {
+        to = resolvedLead.phone;
+      }
     }
     if (!to) {
       return json({
