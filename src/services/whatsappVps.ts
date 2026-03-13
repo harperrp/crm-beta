@@ -7,6 +7,7 @@ export interface WhatsAppVpsStatus {
 }
 
 export interface WhatsAppVpsSendPayload {
+  instanceId: string;
   phone: string;
   text: string;
 }
@@ -45,6 +46,14 @@ async function requestJson(path: string, init?: RequestInit) {
   }
 }
 
+function requireInstanceId(instanceId: string) {
+  const normalized = String(instanceId || "").trim();
+  if (!normalized) {
+    throw new Error("instanceId é obrigatório.");
+  }
+  return encodeURIComponent(normalized);
+}
+
 function normalizeStatus(raw: any): WhatsAppVpsStatus {
   const state = String(raw?.state || raw?.session || raw?.status || "").toLowerCase();
 
@@ -76,57 +85,37 @@ function normalizeStatus(raw: any): WhatsAppVpsStatus {
   };
 }
 
-export async function getWhatsAppVpsStatus() {
-  const endpoints = ["/status", "/health", "/session/status"];
-
-  for (const endpoint of endpoints) {
-    try {
-      const data = await requestJson(endpoint);
-      return normalizeStatus(data);
-    } catch {
-      // Tenta o próximo endpoint para manter compatibilidade com variações do servidor VPS.
-    }
-  }
-
-  throw new Error("Servidor VPS indisponível ou endpoint de status não encontrado.");
+export async function connectWhatsAppVpsInstance(instanceId: string) {
+  const encodedInstanceId = requireInstanceId(instanceId);
+  const data = await requestJson(`/instances/${encodedInstanceId}/connect`, {
+    method: "POST",
+  });
+  return normalizeStatus(data);
 }
 
-export async function getWhatsAppVpsQrCode() {
-  const endpoints = ["/qr", "/session/qr"];
+export async function getWhatsAppVpsStatus(instanceId: string) {
+  const encodedInstanceId = requireInstanceId(instanceId);
+  const data = await requestJson(`/instances/${encodedInstanceId}/status`);
+  return normalizeStatus(data);
+}
 
-  for (const endpoint of endpoints) {
-    try {
-      const data = await requestJson(endpoint);
-      const rawQr = data?.qr || data?.qrCode || data?.image || data?.data;
-      if (!rawQr) return null;
-      return String(rawQr).startsWith("data:image") ? String(rawQr) : `data:image/png;base64,${rawQr}`;
-    } catch {
-      // Mantém fallback entre endpoints conhecidos do Baileys.
-    }
-  }
-
-  return null;
+export async function getWhatsAppVpsQrCode(instanceId: string) {
+  const encodedInstanceId = requireInstanceId(instanceId);
+  const data = await requestJson(`/instances/${encodedInstanceId}/qr`);
+  const rawQr = data?.qr || data?.qrCode || data?.image || data?.data;
+  if (!rawQr) return null;
+  return String(rawQr).startsWith("data:image") ? String(rawQr) : `data:image/png;base64,${rawQr}`;
 }
 
 export async function sendWhatsAppVpsMessage(payload: WhatsAppVpsSendPayload) {
-  const endpoints = ["/send-message", "/message/send"];
-
-  for (const endpoint of endpoints) {
-    try {
-      const data = await requestJson(endpoint, {
-        method: "POST",
-        body: JSON.stringify({
-          phone: payload.phone,
-          number: payload.phone,
-          text: payload.text,
-          message: payload.text,
-        }),
-      });
-      return data;
-    } catch {
-      // Mantém fallback para rotas alternativas sem impactar o fluxo Cloud API.
-    }
-  }
-
-  throw new Error("Falha ao enviar mensagem pelo servidor VPS.");
+  const encodedInstanceId = requireInstanceId(payload.instanceId);
+  return requestJson(`/instances/${encodedInstanceId}/send-message`, {
+    method: "POST",
+    body: JSON.stringify({
+      phone: payload.phone,
+      number: payload.phone,
+      text: payload.text,
+      message: payload.text,
+    }),
+  });
 }

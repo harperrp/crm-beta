@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,9 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { useOrg } from "@/providers/OrgProvider";
 import {
+  connectWhatsAppVpsInstance,
   getWhatsAppVpsQrCode,
   getWhatsAppVpsStatus,
 } from "@/services/whatsappVps";
@@ -35,21 +37,36 @@ export function WhatsAppQRPanel({
   leadName,
 }: WhatsAppQRPanelProps) {
   const [message, setMessage] = useState("");
+  const { activeOrgId, profile } = useOrg();
 
   const normalizedPhone = useMemo(() => normalizePhone(leadPhone), [leadPhone]);
+  const instanceId = useMemo(() => {
+    if (!profile?.id) return null;
+    return activeOrgId ? `${activeOrgId}_${profile.id}` : profile.id;
+  }, [activeOrgId, profile?.id]);
+
+  useEffect(() => {
+    if (!instanceId) return;
+
+    connectWhatsAppVpsInstance(instanceId).catch((error) => {
+      console.error("Falha ao iniciar instância WhatsApp VPS:", error);
+    });
+  }, [instanceId]);
 
   const statusQuery = useQuery({
-    queryKey: ["whatsapp_vps_status"],
-    queryFn: getWhatsAppVpsStatus,
+    queryKey: ["whatsapp_vps_status", instanceId],
+    queryFn: () => getWhatsAppVpsStatus(instanceId as string),
+    enabled: Boolean(instanceId),
     refetchInterval: 15000,
     retry: 1,
   });
 
   const qrQuery = useQuery({
-    queryKey: ["whatsapp_vps_qr"],
-    queryFn: getWhatsAppVpsQrCode,
+    queryKey: ["whatsapp_vps_qr", instanceId],
+    queryFn: () => getWhatsAppVpsQrCode(instanceId as string),
     enabled: Boolean(
-      statusQuery.data?.serverOnline &&
+      instanceId &&
+        statusQuery.data?.serverOnline &&
         !statusQuery.data?.whatsappConnected &&
         (statusQuery.data?.state === "qr_ready" ||
           statusQuery.data?.qrAvailable)
@@ -72,12 +89,17 @@ export function WhatsAppQRPanel({
         throw new Error("Digite uma mensagem antes de enviar.");
       }
 
+      if (!instanceId) {
+        throw new Error("Sessão ativa sem instância de WhatsApp VPS.");
+      }
+
       const { error } = await supabase.functions.invoke("wa-send-message", {
         body: {
           lead_id: leadId,
           text: message.trim(),
           mode: "vps",
           provider: "vps",
+          instance_id: instanceId,
         },
       });
 
@@ -220,7 +242,8 @@ export function WhatsAppQRPanel({
               sendMutation.isPending ||
               !message.trim() ||
               !leadId ||
-              !normalizedPhone
+              !normalizedPhone ||
+              !instanceId
             }
           >
             {sendMutation.isPending && (
