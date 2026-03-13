@@ -224,12 +224,14 @@ async function saveInteraction(params: {
     }
   }
 
+  const now = new Date().toISOString();
+
   const { error: leadError } = await supabase
     .from("leads")
     .update({
-      last_contact_at: new Date().toISOString(),
+      last_contact_at: now,
       last_message: params.text,
-      last_message_at: new Date().toISOString(),
+      last_message_at: now,
       last_message_preview: params.text,
     })
     .eq("id", params.leadId);
@@ -310,10 +312,10 @@ serve(async (req) => {
       phone: string;
     } | null = null;
 
-    if (!to && leadId) {
+    if (leadId) {
       resolvedLead = await resolveLeadPhone(leadId);
 
-      if (!resolvedLead?.phone) {
+      if (!to && !resolvedLead?.phone) {
         return json(
           {
             error: "Lead sem telefone válido",
@@ -322,7 +324,9 @@ serve(async (req) => {
         );
       }
 
-      to = resolvedLead.phone;
+      if (!to && resolvedLead?.phone) {
+        to = resolvedLead.phone;
+      }
     }
 
     if (!to) {
